@@ -1,4 +1,4 @@
-# E. coli Pangenome-Scale Metabolic Model Reconstruction and Analysis
+# E. coli Pangenome-Scale Metabolic Model Reconstruction and Analysis: "Pangenome-Scale Metabolic Network Reconstruction Reveals a Diverse Genetic Basis for Metabolic Reactions"
 
 This repository contains data and code for the pangenome-scale metabolic reconstruction of *Escherichia coli*, enabling detailed analysis of its metabolic diversity. By analyzing the gene-to-protein-to-reaction associations (GPRs) across thousands of strains, this study explores the genetic basis of E. coli's metabolism and reveals the evolutionary dynamics shaping its metabolic functions.
 
