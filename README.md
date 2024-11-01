@@ -23,7 +23,7 @@ We constructed strain-specific metabolic models for 2,377 fully sequenced *E. co
 ## Repository Structure
 
 - **data/**  
-  Contains raw data files, including genome annotations, GPR associations, and panGEM data.
+  Contains data files in csv format.
   
 - **scripts/**  
   Contains code for data processing, pangenome model reconstruction, and analysis.
