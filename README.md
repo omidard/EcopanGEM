@@ -28,8 +28,8 @@ We constructed strain-specific metabolic models for 2,377 fully sequenced *E. co
 - **scripts/**  
   Contains code for data processing, pangenome model reconstruction, and analysis.
 
-- **notebooks/**  
-  Jupyter notebooks for exploratory data analysis, visualization, and results replication.
+- **notebook/**  
+  Jupyter notebook for exploratory data analysis, visualization, and results replication.
 
 
 
