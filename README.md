@@ -32,6 +32,6 @@ We constructed strain-specific metabolic models for 2,377 fully sequenced *E. co
   Jupyter notebook for exploratory data analysis, visualization, and results replication.
 
 
-Files required for running the notebook are deposited in zenodo: https://zenodo.org/records/14028473
+Files required for running the notebook are deposited on zenodo: https://zenodo.org/records/14028473
 GEMs are deposited on Zenodo:  https://zenodo.org/records/13825392
 
