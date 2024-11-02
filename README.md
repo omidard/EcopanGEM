@@ -31,7 +31,6 @@ We constructed strain-specific metabolic models for 2,377 fully sequenced *E. co
 - **notebooks/**  
   Jupyter notebooks for exploratory data analysis, visualization, and results replication.
 
-- **figures/**  
-  Contains figures generated from the analysis, illustrating key findings in the study.
+
 
 
