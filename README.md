@@ -6,19 +6,6 @@ This repository contains data and code for the pangenome-scale metabolic reconst
 
 We constructed strain-specific metabolic models for 2,377 fully sequenced *E. coli* strains, covering approximately 2,700 metabolic reactions. The resulting pangenome-scale model, or "panGEM," connects metabolic genotypes to phenotypes, offering insights into the genetic diversity and evolutionary history of *E. coli* metabolism.
 
-### Key Findings
-
-1. **Genetic Basis of Metabolic Properties**  
-   The GPRs derived from these models reveal a species-wide genetic basis for specific metabolic properties, showcasing genetic diversity and conservation in E. coli metabolism.
-
-2. **Diversity in Core Metabolism**  
-   Many rare genes associated with core metabolic pathways come from diverse protein families, demonstrating both gene fragmentation and horizontal gene transfer.
-
-3. **Genomic Neighborhood Variability**  
-   Rare genes show high variability in genomic neighborhoods, often associated with transposable elements, suggesting a dynamic evolutionary process.
-
-4. **Amino Acid Pathway Enrichment**  
-   Pathways for aromatic amino acids and branched-chain amino acids are enriched with rare genes, highlighting complex evolutionary pressures.
 
 ## Repository Structure
 
