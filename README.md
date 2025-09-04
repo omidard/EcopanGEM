@@ -4,19 +4,21 @@ This repository contains data and code for the pangenome-scale metabolic reconst
 
 
 
-## Method Overview (Figure)
+## Method Overview (Figures)
 
-<p align="center">
-  <img src="docs/workflow.png" width="900" alt="Automated pipeline: genomes → QA/QC → annotation (BAKTA) → pangenome (CD-HIT) → GEM reconstruction (CarveMe) → panGPRs → neighborhood analysis; with protein stoichiometry, 3D modeling, and structural analysis integration.">
-</p>
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/workflow.png" alt="Automated pipeline overview" width="100%">
+      <p align="center"><em>rare essential genes of <i>E. coli</i>: a BiGG data analysis.</em></p>
+    </td>
+    <td width="50%">
+      <img src="docs/panel1.jpg" alt="Pangenome annotation and rare genes analysis" width="100%">
+      <p align="center"><em>pangenome annotation and rare genes analysis.</em></p>
+    </td>
+  </tr>
+</table>
 
-*Figure.* rare essential genes of E.coli: A bigg data analysis.
-
-<p align="center">
-  <img src="docs/panel1.jpg" width="900" alt="Automated pipeline: genomes → QA/QC → annotation (BAKTA) → pangenome (CD-HIT) → GEM reconstruction (CarveMe) → panGPRs → neighborhood analysis; with protein stoichiometry, 3D modeling, and structural analysis integration.">
-</p>
-
-*Figure.* pangenome annotation and rare genes analysis.
 
 
 
