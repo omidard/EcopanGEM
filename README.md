@@ -2,13 +2,21 @@
 
 This repository contains data and code for the pangenome-scale metabolic reconstruction of *Escherichia coli*, enabling detailed analysis of its metabolic diversity. By analyzing the gene-to-protein-to-reaction associations (GPRs) across thousands of strains, this study explores the genetic basis of E. coli's metabolism and reveals the evolutionary dynamics shaping its metabolic functions.
 
+
+
 ## Method Overview (Figure)
+
+<p align="center">
+  <img src="docs/workflow.png" width="900" alt="Automated pipeline: genomes → QA/QC → annotation (BAKTA) → pangenome (CD-HIT) → GEM reconstruction (CarveMe) → panGPRs → neighborhood analysis; with protein stoichiometry, 3D modeling, and structural analysis integration.">
+</p>
+
+*Figure.* rare essential genes of E.coli: A bigg data analysis.
 
 <p align="center">
   <img src="docs/panel1.jpg" width="900" alt="Automated pipeline: genomes → QA/QC → annotation (BAKTA) → pangenome (CD-HIT) → GEM reconstruction (CarveMe) → panGPRs → neighborhood analysis; with protein stoichiometry, 3D modeling, and structural analysis integration.">
 </p>
 
-*Figure.* High-level workflow for automated pangenome and metabolic modeling.
+*Figure.* pangenome annotation and rare genes analysis.
 
 
 
