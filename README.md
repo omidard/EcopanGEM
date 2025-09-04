@@ -2,6 +2,17 @@
 
 This repository contains data and code for the pangenome-scale metabolic reconstruction of *Escherichia coli*, enabling detailed analysis of its metabolic diversity. By analyzing the gene-to-protein-to-reaction associations (GPRs) across thousands of strains, this study explores the genetic basis of E. coli's metabolism and reveals the evolutionary dynamics shaping its metabolic functions.
 
+## Method Overview (Figure)
+
+<p align="center">
+  <img src="docs/panel1.jpg" width="900" alt="Automated pipeline: genomes → QA/QC → annotation (BAKTA) → pangenome (CD-HIT) → GEM reconstruction (CarveMe) → panGPRs → neighborhood analysis; with protein stoichiometry, 3D modeling, and structural analysis integration.">
+</p>
+
+*Figure.* High-level workflow for automated pangenome and metabolic modeling.
+
+
+
+
 ## Overview
 
 We constructed strain-specific metabolic models for 2,377 fully sequenced *E. coli* strains, covering approximately 2,700 metabolic reactions. The resulting pangenome-scale model, or "panGEM," connects metabolic genotypes to phenotypes, offering insights into the genetic diversity and evolutionary history of *E. coli* metabolism.
