@@ -100,7 +100,7 @@ We constructed strain-specific genome-scale metabolic models (GEMs) for 2,377 co
 
 * Some scripts historically used absolute paths (e.g., `/home/omidard/...`). The provided layout under `data/` mirrors those expectations; adjust paths inside scripts if you use a different structure.
 * KEGG queries via `bioservices` can rate-limit; consider caching.
-* File names ending with `.json.json` are expected by `Eco_panGEM_curation.py`.
+* File names ending with `.json` are expected by `Eco_panGEM_curation.py`.
 
 ## Citation
 
