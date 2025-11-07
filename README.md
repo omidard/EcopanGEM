@@ -109,9 +109,6 @@ If you use this repository or derived models, please cite:
 (Preprint/journal details here.)
 Zenodo datasets: **14028473** (core) and **13825392** (GEMs).
 
-## License
-
-Add a `LICENSE` file (e.g., MIT/BSD-3-Clause).
 
 ## Contact
 
