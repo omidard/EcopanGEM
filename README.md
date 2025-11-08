@@ -271,14 +271,6 @@ Generates:
 * `figures/CAR_sensitivity_cdhit80.(png|svg)` and per-category figures
 * `figures/*.csv` (numeric tables)
 
----
-
-### Expected file hand-off to notebooks
-
-* **QC/QA**: `/path/to/qc/genome_qc_results_annotated.csv` (optional for reporting)
-* **Pangenome**: `pangenome/presence_absence_matrix_80.csv`, `pangenome/cluster_to_locus_80.json`
-  These are consumed by the analysis notebooks and downstream panGEM steps.
-
 
 
 ## Contact
