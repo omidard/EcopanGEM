@@ -214,7 +214,7 @@ python scripts/genome_qc_filtering.py \
 
 Notes:
 
-* Hard guards default to `completeness ≥ 90` and `contamination ≤ 5`. Tune with `--comp-min/--cont-max`.
+* Hard guards default to `completeness ≥ 95` and `contamination ≤ 5`. Tune with `--comp-min/--cont-max`.
 * **Danger**: `--delete` permanently removes failing folders (mutually exclusive with `--quarantine`).
 
 ---
