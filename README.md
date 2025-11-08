@@ -102,6 +102,51 @@ We constructed strain-specific genome-scale metabolic models (GEMs) for 2,377 co
 * KEGG queries via `bioservices` can rate-limit; consider caching.
 * File names ending with `.json` are expected by `Eco_panGEM_curation.py`.
 
+Here’s a drop-in README section you can paste as-is.
+
+---
+
+## Data (downloaded from Zenodo on demand)
+
+This repo keeps large data **out of Git history**. A small `Makefile` downloads the archive when you need it.
+
+### What you get
+
+* Source: Zenodo record `14028473`
+* File: `data/Data.zip` (created locally on demand; ignored by Git)
+
+### Requirements
+
+* `make`
+* `curl`
+
+### Usage
+
+1. From the repo root, run:
+
+   ```bash
+   make data
+   ```
+2. The file will appear at:
+
+   ```
+   data/Data.zip
+   ```
+
+### Clean up
+
+Remove the downloaded data (keeps the repo clean):
+
+```bash
+make clean
+```
+
+### Notes
+
+* The `data/` directory is listed in `.gitignore`, so you won’t accidentally commit large files.
+* If you’re on Windows, use Git Bash or WSL to run `make` and `curl`.
+
+
 ## Citation
 
 If you use this repository or derived models, please cite:
