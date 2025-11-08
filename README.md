@@ -154,6 +154,132 @@ If you use this repository or derived models, please cite:
 (Preprint/journal details here.)
 Zenodo datasets: **14028473** (core) and **13825392** (GEMs).
 
+## Genome QC/QA and Pangenome Generation (run **before** the notebooks)
+
+This section covers the minimal, reproducible steps to (i) QC/QA genomes, (ii) filter low-quality assemblies, and (iii) build the pangenome used by the downstream notebooks and scripts.
+
+### 0) Prerequisites
+
+* **Inputs**: per-genome annotation folders each containing a single GenBank file (`*.gbff`/`*.gbk`) *or* a flat folder of `*.gbk`.
+* **Tools**: `python>=3.10`, `biopython`, `pandas`, `tqdm`, `matplotlib`, `cd-hit` binary, and (optional) **CheckM2** available via `micromamba/conda`.
+* **Env hint**:
+
+  ```bash
+  micromamba create -n ckm2 -c conda-forge -c bioconda checkm2 biopython pandas tqdm matplotlib
+  ```
+
+---
+
+### 1) QC each genome (GBFF-aware) and run CheckM2
+
+**Script**: `scripts/genome_qc.py`
+**Input**: `--base_dir` pointing to a directory with subfolders per genome, each containing one `*.gbff/*gbk`
+**Output**: a per-genome QC table (CSV/TSV) with contig stats + CheckM2 completeness/contamination
+
+```bash
+python scripts/genome_qc.py \
+  --base_dir /path/to/annotations_root \
+  --out /path/to/qc/genome_qc_results.csv \
+  --threads 32 \
+  --runner micromamba \
+  --env ckm2 \
+  --checkm2_db /path/to/checkm2_db
+```
+
+* If you don’t have CheckM2 or want to skip it, omit `--checkm2_db` (columns will be `NA`).
+* The script also exports temporary FASTAs and a `quality_report.tsv` under a temp work dir.
+
+---
+
+### 2) Filter genomes by quality (dry-run → apply)
+
+**Script**: `scripts/genome_qc_filtering.py`
+**Input**: the QC table from step 1 and the **same base directory** of genome folders
+**Action**: marks failing genomes using hard guards and robust Z-scores; by default **does not** move/delete anything
+
+```bash
+# Dry run (inspect summary and reasons per genome)
+python scripts/genome_qc_filtering.py \
+  --qc /path/to/qc/genome_qc_results.csv \
+  --base /path/to/annotations_root \
+  --out-table /path/to/qc/genome_qc_results_annotated.csv
+
+# Apply: move failing folders to quarantine (recommended)
+python scripts/genome_qc_filtering.py \
+  --qc /path/to/qc/genome_qc_results.csv \
+  --base /path/to/annotations_root \
+  --apply \
+  --quarantine /path/to/annotations_root/quarantine_low_quality
+```
+
+Notes:
+
+* Hard guards default to `completeness ≥ 90` and `contamination ≤ 5`. Tune with `--comp-min/--cont-max`.
+* **Danger**: `--delete` permanently removes failing folders (mutually exclusive with `--quarantine`).
+
+---
+
+### 3) Build the pangenome (CD-HIT; GBK-aware; multi-threshold)
+
+**Script**: `scripts/pangenome_sensitivity_gbk.py`
+**Input**: an **annotations** directory containing either:
+
+* a flat collection of `*.gbk`, or
+* a per-genome tree with `*.faa` files (the script will auto-detect and merge)
+
+**Outputs (per threshold X)**:
+
+* `pangenome/cdhit_full_X.faa`, `pangenome/cdhit_full_X.faa.clstr`
+* `pangenome/presence_absence_matrix_X.csv`
+* `pangenome/cluster_to_locus_X.json`
+
+Run (interactive prompts will suggest defaults):
+
+```bash
+python scripts/pangenome_sensitivity_gbk.py
+# You will be asked for:
+#  • BASE dir (logs/outputs), ANNOTATIONS dir, PANGENOME dir
+#  • path to cd-hit (e.g., /usr/bin/cd-hit)
+#  • threads (e.g., 32)
+#  • identity thresholds, e.g.: 65,70,75,80,85,90,95   (Enter for 80)
+#  • alignment coverage for longer sequence (-aL), e.g., 80
+```
+
+**What the notebook expects later** (defaults):
+
+* `pangenome/presence_absence_matrix_80.csv`
+* `pangenome/cluster_to_locus_80.json`
+
+*(If you pick different thresholds/paths, update the notebook/config accordingly.)*
+
+---
+
+### 4) Summarize pangenome sensitivity (figures + tables)
+
+**Script**: `scripts/pangenome_sensitivity_results.py`
+**Input**: the JSON/CSV outputs from step 3 under a single `BASE` directory
+**Outputs**: publication-ready panels (`.png/.svg`) and CSV tables in `BASE/figures/`
+
+```bash
+# Edit BASE inside the script or export an env var and sed it in
+python scripts/pangenome_sensitivity_results.py
+```
+
+Generates:
+
+* `figures/clusters_vs_cdhit_threshold.(png|svg)`
+* `figures/CAR_sensitivity_cdhit80.(png|svg)` and per-category figures
+* `figures/*.csv` (numeric tables)
+
+---
+
+### Expected file hand-off to notebooks
+
+* **QC/QA**: `/path/to/qc/genome_qc_results_annotated.csv` (optional for reporting)
+* **Pangenome**: `pangenome/presence_absence_matrix_80.csv`, `pangenome/cluster_to_locus_80.json`
+  These are consumed by the analysis notebooks and downstream panGEM steps.
+
+
 
 ## Contact
 
