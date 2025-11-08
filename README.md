@@ -65,21 +65,41 @@ We constructed strain-specific genome-scale metabolic models (GEMs) for 2,377 co
 
 * **data/**
   Input data and generated outputs (see layout above).
-* **scripts/**
-  Standalone steps for reconstruction, curation, and analyses:
+* **scripts/** — standalone steps for **QC → pangenome → panGEM → analyses**
 
-  * `pangem.py` — reciprocal BLAST + nucleotide checks → presence/absence matrices; draft GEMs
-  * `ecoli_gapfilling6.py` — add essential subset from reference under M9 conditions
-  * `Eco_panGEM_curation.py` — targeted curation (ID changes, GPR merges, added reactions)
-  * `biolog_ecoli_prediction.py` — FBA-based growth predictions on M9 + carbon sources
-  * `gems_missing_genes.py` → `miss_locci_df_preparation.py` → `gems_missing_reactions_kegg.py` → `add_missed_reactions_ecoli.py` — optional track to find missing loci, map to KEGG/EC, and add curated reactions
-  * `add_spont_to_gems_ecoli4.py` — add spontaneous (`s0001`) reactions (optional)
-  * `eco_gems_allels.py` — reaction×GEM GPR/allele matrix export (optional)
-  * `genes_neighborhood_analysis_total_preparation.py` (expand) + extractor (optional) — neighborhood mining
-* **notebook/**
-  Optional Jupyter material for exploration/figures.
-* **docs/**
-  Figures and documentation assets.
+* `genome_qc.py` — GBFF/GenBank–aware genome QC; exports FASTA, basic assembly stats, and (optionally) **CheckM2** completeness/contamination.
+
+* `genome_qc_filtering.py` — robust filtering of low-quality genomes (hard guards + median/MAD); dry-run by default; can quarantine or delete.
+
+* `genome_qc.sh` — convenience wrapper to run QC + CheckM2 with consistent args.
+
+* `pangenome_sensitivity_gbk.py` — GBK-aware protein merge and **CD-HIT** clustering at one or multiple identity thresholds; writes `cdhit_full_*.faa`, `*.clstr`, `presence_absence_matrix_*.csv`, `cluster_to_locus_*.json`.
+
+* `pangenome_sensitivity_results.py` — figures/CSV tables for cluster counts vs threshold and CAR (Core/Accessory/Rare) sensitivity at 80%.
+
+* `pangem.py` — reciprocal BLAST + nucleotide checks → presence/absence matrices; drafts strain-specific GEMs.
+
+* `ecoli_gapfilling6.py` — adds essential subset from reference under M9 conditions (keeps only missing reactions essential for growth).
+
+* `Eco_panGEM_curation.py` — targeted curation (ID changes, bounds, GPR merges, add/remove reactions per instruction map).
+
+* `add_spont_to_gems_ecoli4.py` — adds spontaneous (`s0001`) reactions to models (optional).
+
+* `biolog_ecoli_prediction.py` — FBA growth predictions on M9 with carbon sources; writes predictions back to Biolog table.
+
+* `gems_missing_genes.py` → `miss_locci_df_preparation.py` → `gems_missing_reactions_kegg.py` → `add_missed_reactions_ecoli.py` — optional track to:
+
+  * detect genes present in genomes but absent from GEMs,
+  * parse/clean product strings and split hypotheticals,
+  * map candidates to KEGG/EC and fetch reaction metadata/PMIDs,
+  * add curated reactions/GPRs back to models in parallel.
+
+* `eco_gems_allels.py` — reaction×GEM matrix of allele/GPR content (export).
+
+* `genes_neighborhood_analysis_total_preparation.py` — builds reaction-specific gene-neighborhood tables across genomes (multiprocessing; GBK parsing).
+
+* `genes_neighborhood_analysis_total2.py` — alternative/legacy implementation of the neighborhood expansion/extraction pipeline.
+
 
 ## Typical Outputs
 
