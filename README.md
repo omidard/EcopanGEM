@@ -1,5 +1,3 @@
-Got it — here’s your README exactly as you posted, with one added subsection that documents the `Makefile` data fetch (no other changes).
-
 ---
 
 # E. coli Pangenome-Scale Metabolic Model Reconstruction and Analysis
