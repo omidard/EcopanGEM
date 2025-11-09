@@ -1,0 +1,44 @@
+name: panGEM
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+
+dependencies:
+  # Core
+  - python=3.10
+  - pip
+
+  # Data/compute stack
+  - pandas>=2.0
+  - numpy
+  - scipy
+  - tqdm
+  - matplotlib
+  - openpyxl        # pandas Excel writer/reader
+  - xlrd            # (legacy .xls support; harmless if unused)
+
+  # Bio I/O + utilities
+  - biopython
+  - bioservices     # KEGG access used in gems_missing_reactions_kegg.py
+  - requests
+  - lxml
+  - beautifulsoup4
+
+  # COBRA / solver stack
+  - cobra           # COBRApy (brings optlang)
+  - optlang
+  - glpk
+  - swiglpk
+  - libsbml        # handy even if you mostly use .mat/.json
+
+  # External tools used by scripts
+  - blast           # makeblastdb / blastp / blastn
+  - cd-hit
+
+  # Optional (only needed if you run genome_qc with CheckM2)
+  - checkm2
+
+  # (no pip-only extras needed right now)
+  - pip:
+      - 
