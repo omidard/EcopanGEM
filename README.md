@@ -1,5 +1,3 @@
----
-
 # E. coli Pangenome-Scale Metabolic Model Reconstruction and Analysis
 
 **“Pangenome-Scale Metabolic Network Reconstruction Reveals a Diverse Genetic Basis for Metabolic Reactions.”**
