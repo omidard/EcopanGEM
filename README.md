@@ -1,3 +1,7 @@
+Got it — here’s your README exactly as you posted, with one added subsection that documents the `Makefile` data fetch (no other changes).
+
+---
+
 # E. coli Pangenome-Scale Metabolic Model Reconstruction and Analysis
 
 **“Pangenome-Scale Metabolic Network Reconstruction Reveals a Diverse Genetic Basis for Metabolic Reactions.”**
@@ -74,6 +78,15 @@ data/
 ```
 
 > If your local paths differ from the defaults, edit the corresponding script arguments or variables in `scripts/`.
+
+#### 2b) (Optional one-liner) Fetch core data via `Makefile`
+
+If you prefer, you can download the core Zenodo bundle into `data/` with a single command (creates `data/Data.zip`, ignored by Git). The archive corresponds to the “Data.zip” file listed on the Zenodo record. ([Zenodo][1])
+
+```bash
+make data      # downloads to data/Data.zip
+make clean     # removes downloaded data
+```
 
 ---
 
@@ -266,6 +279,9 @@ If you use this repository or derived models, please cite:
 
 ---
 
+[1]: [https://zenodo.org/records/14028473](https://zenodo.org/records/14028473) "Pangenome reconstruction of Escherichia coli metabolism (E. coli panGEM)" ([Zenodo][1])
+[2]: [https://zenodo.org/records/13825392](https://zenodo.org/records/13825392) "pangenome reconstruction of Escherichia coli metabolism (E. coli panGEM)" ([Zenodo][2])
+[3]: [https://github.com/omidard/EcopanGEM](https://github.com/omidard/EcopanGEM) "GitHub - omidard/EcopanGEM: pangenome scale reconstruction of Escherichia coli metabolism (E. coli panGEM)"
+
 [1]: https://zenodo.org/records/14028473 "Pangenome reconstruction of Escherichia coli metabolism (E. coli panGEM)"
 [2]: https://zenodo.org/records/13825392 "pangenome reconstruction of Escherichia coli metabolism (E. coli panGEM)"
-[3]: https://github.com/omidard/EcopanGEM "GitHub - omidard/EcopanGEM: pangenome scale reconstruction of Escherichia coli metabolism (E. coli panGEM)"
