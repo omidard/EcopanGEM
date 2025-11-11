@@ -1,8 +1,7 @@
 # Fetch Data.zip from Zenodo into data/
 DATA_DIR := data
 ZIP := $(DATA_DIR)/Data.zip
-URL := https://zenodo.org/records/14028473/files/Data.zip?download=1
-
+URL := https://zenodo.org/records/17581962
 .PHONY: data clean
 
 data: $(ZIP)
