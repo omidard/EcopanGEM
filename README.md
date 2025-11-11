@@ -263,8 +263,7 @@ python scripts/pangenome_sensitivity_results.py
 
 If you use this repository or derived models, please cite:
 
-> **“Pangenome-Scale Metabolic Network Reconstruction Reveals a Diverse Genetic Basis for Metabolic Reactions.”**
-> Zenodo datasets: **10.5281/zenodo.14028473** (core) and **10.5281/zenodo.13825392** (GEMs). ([Zenodo][1])
+> **“Annotating the Pangenome Reveals the Diversity in the Genetic Basis for Metabolic Enzymes”**
 
 ---
 
