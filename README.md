@@ -5,9 +5,9 @@
 This repository contains data and code for the pangenome-scale metabolic reconstruction of *Escherichia coli*, enabling detailed analysis of its metabolic diversity. By analyzing gene–protein–reaction (GPR) associations across thousands of strains, this work quantifies the genetic basis of *E. coli* metabolism and the evolutionary dynamics shaping metabolic functions.
 
 > **Data availability (Zenodo)**
->
-> * Core bundle (scripts + supporting data): DOI **10.5281/zenodo.14028473**. ([Zenodo][1])
-> * Prebuilt GEMs bundle: DOI **10.5281/zenodo.13825392**. ([Zenodo][2])
+
+> * Core bundle (scripts + supporting data + panGEM): DOI **10.5281/zenodo.17581962**. ([Zenodo])
+
 
 ---
 
@@ -53,8 +53,7 @@ conda install -c bioconda blast cd-hit   # provides makeblastdb/blastp/blastn + 
 
 ### 2) Place data (from Zenodo)
 
-* Core bundle: [https://doi.org/10.5281/zenodo.14028473](https://doi.org/10.5281/zenodo.14028473)  ([Zenodo][1])
-* GEMs bundle: [https://doi.org/10.5281/zenodo.13825392](https://doi.org/10.5281/zenodo.13825392)  ([Zenodo][2])
+* Core bundle + GEMs: [https://zenodo.org/records/17581962)  ([Zenodo][1])
 
 Extract into `data/` and keep this layout:
 
@@ -274,10 +273,3 @@ If you use this repository or derived models, please cite:
 **Omid Ardalani** — [omidard@biosustain.dtu.dk](mailto:omidard@biosustain.dtu.dk) · Issues and PRs welcome.
 
 ---
-
-[1]: [https://zenodo.org/records/14028473](https://zenodo.org/records/14028473) "Pangenome reconstruction of Escherichia coli metabolism (E. coli panGEM)" ([Zenodo][1])
-[2]: [https://zenodo.org/records/13825392](https://zenodo.org/records/13825392) "pangenome reconstruction of Escherichia coli metabolism (E. coli panGEM)" ([Zenodo][2])
-[3]: [https://github.com/omidard/EcopanGEM](https://github.com/omidard/EcopanGEM) "GitHub - omidard/EcopanGEM: pangenome scale reconstruction of Escherichia coli metabolism (E. coli panGEM)"
-
-[1]: https://zenodo.org/records/14028473 "Pangenome reconstruction of Escherichia coli metabolism (E. coli panGEM)"
-[2]: https://zenodo.org/records/13825392 "pangenome reconstruction of Escherichia coli metabolism (E. coli panGEM)"
