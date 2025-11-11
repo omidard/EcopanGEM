@@ -6,7 +6,7 @@ This repository contains data and code for the pangenome-scale metabolic reconst
 
 > **Data availability (Zenodo)**
 
-> * Core bundle (scripts + supporting data + panGEM): DOI **10.5281/zenodo.17581962**. ([Zenodo])
+> * Core bundle (scripts + supporting data + panGEM): https://zenodo.org/records/17581962
 
 
 ---
