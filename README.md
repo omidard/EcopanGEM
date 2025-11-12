@@ -17,11 +17,12 @@ This repository contains data and code for the pangenome-scale metabolic reconst
   <tr>
     <td width="50%">
       <img src="docs/workflow.png" alt="Automated pipeline overview" width="100%">
-      <p align="center"><em>Pipeline overview for panGEM reconstruction and analysis.</em></p>
+      <p align="center"><em>Rare Metabolic Gene Essentiality is a Determinant of Microniche Adaptation in
+Escherichia coli.</em></p>
     </td>
     <td width="50%">
       <img src="docs/panel1.jpg" alt="Pangenome annotation and gene-based analyses" width="100%">
-      <p align="center"><em>Pangenome annotation and gene-based analyses.</em></p>
+      <p align="center"><em>Annotating the Pangenome Reveals the Diversity in the Genetic Basis for Metabolic Enzymes.</em></p>
     </td>
   </tr>
 </table>
