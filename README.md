@@ -54,7 +54,7 @@ conda install -c bioconda blast cd-hit   # provides makeblastdb/blastp/blastn + 
 
 ### 2) Place data (from Zenodo)
 
-* Core bundle + GEMs: [https://zenodo.org/records/17581962)  ([Zenodo][1])
+* Core bundle + GEMs: [https://zenodo.org/records/17581962) 
 
 Extract into `data/` and keep this layout:
 
