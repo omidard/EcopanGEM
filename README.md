@@ -18,7 +18,7 @@ This repository contains data and code for the pangenome-scale metabolic reconst
     <td width="50%">
       <img src="docs/workflow.png" alt="Automated pipeline overview" width="100%">
       <p align="center"><em>Rare Metabolic Gene Essentiality is a Determinant of Microniche Adaptation in
-Escherichia coli.</em></p>
+Escherichia coli [https://doi.org/10.1371/journal.ppat.1013775].</em></p>
     </td>
     <td width="50%">
       <img src="docs/panel1.jpg" alt="Pangenome annotation and gene-based analyses" width="100%">
