@@ -42,10 +42,10 @@ We constructed strain-specific genome-scale metabolic models (GEMs) for **2,377 
 ```bash
 # Clone
 git clone https://github.com/omidard/EcopanGEM.git
-cd EcopanGEM
+
 
 # Conda env
-conda env create -f environment.yml
+conda env create -f EcopanGEM/scripts/environment.yml
 conda activate panGEM
 
 # External binaries (required)
@@ -125,7 +125,7 @@ make clean     # removes downloaded data
 
 ---
 
-### B) Pangenome Generation (GBK-aware; multi-threshold CD-HIT)
+### B) Pangenome Generation (multi-threshold CD-HIT)
 
 ```bash
 python scripts/pangenome_sensitivity_gbk.py
