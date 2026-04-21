@@ -10,7 +10,7 @@ dependencies:
   - pip
 
   # Data/compute stack
-  - pandas>=2.0
+  - pandas
   - numpy
   - scipy
   - tqdm
@@ -38,7 +38,3 @@ dependencies:
 
   # Optional (only needed if you run genome_qc with CheckM2)
   - checkm2
-
-  # (no pip-only extras needed right now)
-  - pip:
-      - 
