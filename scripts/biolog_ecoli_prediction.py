@@ -72,10 +72,10 @@ def process_strain(strain, carbon_sources, gem_folder):
     try:
         model = cobra.io.load_json_model(model_file)
     except Exception as e:
-        print(f"⚠️ Error Loading Model: {strain}, {e}")
+        print(f" Error Loading Model: {strain}, {e}")
         return (strain, "Error")
 
-    print(f"✅ Processing Model: {strain}")
+    print(f" Processing Model: {strain}")
 
     predictions = []
     for carbon_source in carbon_sources:
