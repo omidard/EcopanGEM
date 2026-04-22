@@ -57,9 +57,14 @@ We constructed strain-specific genome-scale metabolic models (GEMs) for **2,377 
 git clone https://github.com/omidard/EcopanGEM.git
 cd EcopanGEM
 
-# Conda env
-conda env create -f scripts/environment.yml
+# Conda env (option A: conda — may be slow on some systems)
+conda env create -f scripts/environment.yml -c conda-forge
 conda activate panGEM
+
+# Conda env (option B: mamba — much faster solver, recommended)
+conda install -n base -c conda-forge mamba
+mamba env create -f scripts/environment.yml
+mamba activate panGEM
 
 # External binaries (required)
 conda install -c bioconda blast cd-hit   # provides makeblastdb/blastp/blastn + cd-hit
