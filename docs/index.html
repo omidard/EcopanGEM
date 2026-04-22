@@ -139,11 +139,14 @@
       <button class="btn btn-sm btn-zenodo" onclick="downloadAll()">
         Download All GEMs (Zenodo)
       </button>
-      <button class="btn btn-sm btn-outline-primary" id="btn-copy" onclick="copySelected()" disabled>
-        Copy Selected GEM Filenames
-      </button>
       <button class="btn btn-sm btn-primary" id="btn-download-sel" onclick="downloadSelected()" disabled>
         Download Selected GEMs
+      </button>
+      <button class="btn btn-sm btn-outline-primary" id="btn-copy" onclick="copySelected()" disabled>
+        Copy Filenames
+      </button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="exportCSV()">
+        Export Table (CSV)
       </button>
     </div>
   </div>
@@ -191,6 +194,7 @@
   </p>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
@@ -328,108 +332,175 @@ function closeDownloadModal() {
   if (el) el.remove();
 }
 
-function downloadSelected() {
-  const gemFiles = getSelectedGemFiles();
-  if (gemFiles.length === 0) return;
+let dlAbort = null;
 
-  const zipPrefix = 'Ecoli_GEMs_for_Complete_genomes/';
-  const fileArgs = gemFiles.map(f => `"${zipPrefix}${f}"`).join(' \\\n  ');
-  const curlCmd = `curl -L -o Ecoli_GEMs.zip "${ZENODO_ZIP}"`;
-  const unzipCmd = `unzip Ecoli_GEMs.zip \\\n  ${fileArgs} \\\n  -d selected_gems/ -j`;
-
-  const scriptContent = `#!/usr/bin/env bash
-set -euo pipefail
-# EcopanGEM — download ${gemFiles.length} selected GEM(s)
-# Generated from https://omidard.github.io/EcopanGEM/
-
-ZENODO_URL="${ZENODO_ZIP}"
-ARCHIVE="Ecoli_GEMs_for_Complete_genomes.zip"
-OUT_DIR="selected_gems"
-
-echo "Downloading GEM archive from Zenodo (~314 MB)..."
-if [ ! -f "$ARCHIVE" ]; then
-  curl -L --progress-bar -o "$ARCHIVE" "$ZENODO_URL"
-else
-  echo "  Archive already exists, skipping download."
-fi
-
-echo "Extracting ${gemFiles.length} selected GEM(s)..."
-mkdir -p "$OUT_DIR"
-unzip -o -j "$ARCHIVE" \\
-${gemFiles.map(f => `  "${zipPrefix}${f}"`).join(' \\\n')} \\
-  -d "$OUT_DIR"
-
-echo ""
-echo "Done! ${gemFiles.length} GEM(s) extracted to $OUT_DIR/"
-ls -lh "$OUT_DIR"/*.json.json 2>/dev/null | head -20
-`;
-
+function showDlModal(title, statusMsg) {
+  closeDownloadModal();
   const div = document.createElement('div');
   div.className = 'dl-overlay';
   div.id = 'dl-overlay';
   div.innerHTML = `
     <div class="dl-modal">
-      <h5>Download ${gemFiles.length} Selected GEM(s)</h5>
-      <p style="font-size:0.85rem;color:#555">
-        GEMs are stored in a Zenodo archive. Choose how to get your selection:
-      </p>
-
-      <div class="mb-3">
-        <button class="btn btn-sm btn-primary w-100 mb-2" onclick="triggerScriptDownload()">
-          Download Shell Script (.sh)
-        </button>
-        <div style="font-size:0.78rem;color:#888;text-align:center">
-          Run with: <code>bash download_gems.sh</code>
-        </div>
-      </div>
-
-      <div class="mb-3" style="text-align:center;font-size:0.8rem;color:#aaa">or manually:</div>
-
-      <div class="dl-fallback">
-        <strong>Step 1:</strong> Download the archive (~314 MB)
-        <code id="dl-curl-cmd">${curlCmd}</code>
-        <strong class="mt-2 d-block">Step 2:</strong> Extract your ${gemFiles.length} GEM(s)
-        <code id="dl-unzip-cmd" style="max-height:120px;overflow-y:auto">${unzipCmd}</code>
-      </div>
-
-      <div class="mt-3 d-flex justify-content-between">
-        <button class="btn btn-sm btn-outline-secondary" onclick="copyDlCommands()">Copy Commands</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="closeDownloadModal()">Close</button>
+      <h5 id="dl-title">${title}</h5>
+      <div class="dl-progress"><div class="dl-progress-bar" id="dl-bar" style="width:0%"></div></div>
+      <div class="dl-status" id="dl-status">${statusMsg}</div>
+      <div id="dl-fallback-area" style="display:none"></div>
+      <div class="mt-3 text-end">
+        <button class="btn btn-sm btn-outline-secondary" id="dl-close-btn" onclick="cancelDl()">Cancel</button>
       </div>
     </div>`;
   document.body.appendChild(div);
-
-  // Store script content for download
-  window._gemScript = scriptContent;
 }
 
-function triggerScriptDownload() {
-  const blob = new Blob([window._gemScript], { type: 'text/x-shellscript' });
+function setDlProgress(pct, msg) {
+  const bar = document.getElementById('dl-bar');
+  const st = document.getElementById('dl-status');
+  if (bar) bar.style.width = pct + '%';
+  if (st) st.textContent = msg;
+}
+
+function cancelDl() {
+  if (dlAbort) dlAbort.abort();
+  closeDownloadModal();
+}
+
+function showDlFallback(gemFiles) {
+  const zipPrefix = 'Ecoli_GEMs_for_Complete_genomes/';
+  const fileArgs = gemFiles.map(f => `"${zipPrefix}${f}"`).join(' ');
+  const area = document.getElementById('dl-fallback-area');
+  if (!area) return;
+  area.style.display = 'block';
+  area.innerHTML = `
+    <div class="dl-fallback">
+      <strong>Alternative — run in terminal:</strong>
+      <code>curl -L -o Ecoli_GEMs.zip "${ZENODO_ZIP}" && unzip -j Ecoli_GEMs.zip ${fileArgs} -d selected_gems/</code>
+      <button class="btn btn-sm btn-outline-secondary mt-2" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy command',2000)})">Copy command</button>
+    </div>`;
+  document.getElementById('dl-close-btn').textContent = 'Close';
+}
+
+const CORS_PROXIES = [
+  url => 'https://corsproxy.io/?' + encodeURIComponent(url),
+  url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
+];
+
+async function fetchWithProxy(url, signal) {
+  // Try direct first (unlikely to work but fast to fail)
+  for (const makeProxy of [u => u, ...CORS_PROXIES]) {
+    const proxyUrl = makeProxy(url);
+    try {
+      const resp = await fetch(proxyUrl, { signal });
+      if (resp.ok) return resp;
+    } catch (e) {
+      if (signal.aborted) throw e;
+    }
+  }
+  throw new Error('All download methods failed (CORS)');
+}
+
+async function downloadSelected() {
+  const gemFiles = getSelectedGemFiles();
+  if (gemFiles.length === 0) return;
+
+  dlAbort = new AbortController();
+  showDlModal(
+    `Downloading ${gemFiles.length} GEM(s)...`,
+    'Connecting to Zenodo...'
+  );
+
+  const zipPrefix = 'Ecoli_GEMs_for_Complete_genomes/';
+  const wantedPaths = new Set(gemFiles.map(f => zipPrefix + f));
+
+  try {
+    const response = await fetchWithProxy(ZENODO_ZIP, dlAbort.signal);
+    const contentLength = parseInt(response.headers.get('content-length') || '0');
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      if (contentLength > 0) {
+        const pct = Math.round((received / contentLength) * 60);
+        setDlProgress(pct, `Downloading: ${(received/1e6).toFixed(0)} / ${(contentLength/1e6).toFixed(0)} MB`);
+      } else {
+        setDlProgress(30, `Downloading: ${(received/1e6).toFixed(0)} MB...`);
+      }
+      if (dlAbort.signal.aborted) return;
+    }
+
+    setDlProgress(65, `Extracting ${gemFiles.length} GEM(s)...`);
+    const blob = new Blob(chunks);
+    const sourceZip = await JSZip.loadAsync(await blob.arrayBuffer());
+
+    const outputZip = new JSZip();
+    let found = 0;
+    for (const [path, entry] of Object.entries(sourceZip.files)) {
+      if (!entry.dir && wantedPaths.has(path)) {
+        outputZip.file(path.split('/').pop(), await entry.async('uint8array'));
+        found++;
+        setDlProgress(65 + Math.round((found / gemFiles.length) * 30),
+          `Extracted ${found} / ${gemFiles.length} GEMs...`);
+      }
+      if (dlAbort.signal.aborted) return;
+    }
+
+    if (found === 0) throw new Error('No matching GEM files found.');
+
+    setDlProgress(97, 'Creating download...');
+    const outBlob = await outputZip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+
+    setDlProgress(100, `Done! ${found} GEM(s) ready.`);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(outBlob);
+    a.download = `EcopanGEM_selected_${found}_models.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    setTimeout(closeDownloadModal, 1500);
+
+  } catch (err) {
+    if (dlAbort.signal.aborted) return;
+    console.error('Download error:', err);
+    document.getElementById('dl-title').textContent = 'Direct download unavailable';
+    document.getElementById('dl-bar').style.width = '0%';
+    document.getElementById('dl-status').textContent = '';
+    showDlFallback(gemFiles);
+  }
+}
+
+// --- CSV export ---
+function exportCSV() {
+  const visibleCols = [];
+  COLUMNS.forEach((c, i) => {
+    if (table.column(i).visible()) visibleCols.push(c);
+  });
+
+  // Get filtered data
+  const filteredData = table.rows({ search: 'applied' }).data().toArray();
+
+  let csv = visibleCols.map(c => '"' + c.label + '"').join(',') + '\n';
+  filteredData.forEach(row => {
+    csv += visibleCols.map(c => {
+      let val = row[c.key];
+      if (val === null || val === undefined) val = '';
+      val = String(val).replace(/"/g, '""');
+      return '"' + val + '"';
+    }).join(',') + '\n';
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'download_gems.sh';
+  a.download = `EcopanGEM_metadata_${filteredData.length}_strains.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
-
-  const btn = event.target;
-  btn.textContent = 'Downloaded!';
-  btn.classList.replace('btn-primary', 'btn-success');
-  setTimeout(() => {
-    btn.textContent = 'Download Shell Script (.sh)';
-    btn.classList.replace('btn-success', 'btn-primary');
-  }, 2000);
-}
-
-function copyDlCommands() {
-  const curl = document.getElementById('dl-curl-cmd').textContent;
-  const unzip = document.getElementById('dl-unzip-cmd').textContent;
-  navigator.clipboard.writeText(curl + '\n\n' + unzip).then(() => {
-    const btn = event.target;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy Commands', 2000);
-  });
 }
 
 // Column toggle
