@@ -4,6 +4,9 @@
 
 This repository contains data and code for the pangenome-scale metabolic reconstruction of *Escherichia coli*, enabling detailed analysis of its metabolic diversity. By analyzing gene-protein-reaction (GPR) associations across thousands of strains, this work quantifies the genetic basis of *E. coli* metabolism and the evolutionary dynamics shaping metabolic functions.
 
+> **Browse & download GEMs**
+> * Interactive GEM browser (search by phylogroup, MLST, isolation source, host, country): https://omidard.github.io/EcopanGEM/
+
 > **Data availability (Zenodo)**
 > * Core bundle (scripts + supporting data + panGEM): https://zenodo.org/records/17581962
 
