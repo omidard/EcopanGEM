@@ -211,7 +211,7 @@ python scripts/pangenome_sensitivity_results.py
    ```bash
    python scripts/add_spont_to_gems_ecoli4.py
    ```
-   *Reads/writes: `gapfilled/`*
+   *Reads/writes: `gapfilled3/`*
 
 4. **Curation sweep (IDs, bounds, GPR merges, add/remove reactions)**
 
