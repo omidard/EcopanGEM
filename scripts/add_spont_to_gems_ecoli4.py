@@ -21,10 +21,10 @@ def process_target_model(target_model_path):
 
     # Save the modified target model (in JSON format)
     target_model_filename = os.path.basename(target_model_path)
-    cobra.io.json.save_json_model(target_model, os.path.join(DATA_DIR, 'gapfilled', target_model_filename))
+    cobra.io.json.save_json_model(target_model, os.path.join(DATA_DIR, 'gapfilled3', target_model_filename))
 
 # List of target model file paths (in JSON format)
-target_model_dir = os.path.join(DATA_DIR, 'gapfilled')
+target_model_dir = os.path.join(DATA_DIR, 'gapfilled3')
 target_model_files = [os.path.join(target_model_dir, filename) for filename in os.listdir(target_model_dir) if filename.endswith('.json')]
 
 # Use multiprocessing to parallelize the process
