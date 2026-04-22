@@ -202,7 +202,9 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const ZENODO_ZIP = 'https://zenodo.org/records/17581962/files/Ecoli_GEMs_for_Complete_genomes.zip?download=1';
+const BATCH_BASE = 'https://github.com/omidard/EcopanGEM/releases/download/v1.0-gems/gems_batch_';
 let table;
+let gemBatchMap = {};  // gem_file -> batch number
 
 // Column definitions: key, display name, group, visible by default, render function
 const COLUMNS = [
@@ -379,78 +381,68 @@ function showDlFallback(gemFiles) {
   document.getElementById('dl-close-btn').textContent = 'Close';
 }
 
-const CORS_PROXIES = [
-  url => 'https://corsproxy.io/?' + encodeURIComponent(url),
-  url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
-];
-
-async function fetchWithProxy(url, signal) {
-  // Try direct first (unlikely to work but fast to fail)
-  for (const makeProxy of [u => u, ...CORS_PROXIES]) {
-    const proxyUrl = makeProxy(url);
-    try {
-      const resp = await fetch(proxyUrl, { signal });
-      if (resp.ok) return resp;
-    } catch (e) {
-      if (signal.aborted) throw e;
-    }
-  }
-  throw new Error('All download methods failed (CORS)');
-}
-
 async function downloadSelected() {
   const gemFiles = getSelectedGemFiles();
   if (gemFiles.length === 0) return;
 
   dlAbort = new AbortController();
+
+  // Figure out which batch zips we need
+  const neededBatches = new Map(); // batch_num -> [gem_file, ...]
+  for (const gf of gemFiles) {
+    const batchNum = gemBatchMap[gf];
+    if (!batchNum) continue;
+    if (!neededBatches.has(batchNum)) neededBatches.set(batchNum, []);
+    neededBatches.get(batchNum).push(gf);
+  }
+
+  const batchNums = [...neededBatches.keys()].sort((a,b) => a-b);
+  const totalBatches = batchNums.length;
+  const batchLabel = totalBatches === 1 ? '~32 MB' : `${totalBatches} batches, ~${totalBatches * 32} MB`;
+
   showDlModal(
     `Downloading ${gemFiles.length} GEM(s)...`,
-    'Connecting to Zenodo...'
+    `Fetching ${batchLabel} from GitHub...`
   );
 
-  const zipPrefix = 'Ecoli_GEMs_for_Complete_genomes/';
-  const wantedPaths = new Set(gemFiles.map(f => zipPrefix + f));
-
   try {
-    const response = await fetchWithProxy(ZENODO_ZIP, dlAbort.signal);
-    const contentLength = parseInt(response.headers.get('content-length') || '0');
-    const reader = response.body.getReader();
-    const chunks = [];
-    let received = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      if (contentLength > 0) {
-        const pct = Math.round((received / contentLength) * 60);
-        setDlProgress(pct, `Downloading: ${(received/1e6).toFixed(0)} / ${(contentLength/1e6).toFixed(0)} MB`);
-      } else {
-        setDlProgress(30, `Downloading: ${(received/1e6).toFixed(0)} MB...`);
-      }
-      if (dlAbort.signal.aborted) return;
-    }
-
-    setDlProgress(65, `Extracting ${gemFiles.length} GEM(s)...`);
-    const blob = new Blob(chunks);
-    const sourceZip = await JSZip.loadAsync(await blob.arrayBuffer());
-
     const outputZip = new JSZip();
     let found = 0;
-    for (const [path, entry] of Object.entries(sourceZip.files)) {
-      if (!entry.dir && wantedPaths.has(path)) {
-        outputZip.file(path.split('/').pop(), await entry.async('uint8array'));
-        found++;
-        setDlProgress(65 + Math.round((found / gemFiles.length) * 30),
-          `Extracted ${found} / ${gemFiles.length} GEMs...`);
+
+    for (let bi = 0; bi < batchNums.length; bi++) {
+      const batchNum = batchNums[bi];
+      const wantedInBatch = new Set(neededBatches.get(batchNum));
+      const batchUrl = BATCH_BASE + String(batchNum).padStart(2, '0') + '.zip';
+
+      setDlProgress(
+        Math.round((bi / totalBatches) * 70),
+        `Downloading batch ${bi + 1}/${totalBatches}...`
+      );
+
+      const resp = await fetch(batchUrl, { signal: dlAbort.signal });
+      if (!resp.ok) throw new Error(`Failed to download batch ${batchNum}: HTTP ${resp.status}`);
+
+      const batchBlob = await resp.blob();
+      const batchZip = await JSZip.loadAsync(await batchBlob.arrayBuffer());
+
+      for (const [path, entry] of Object.entries(batchZip.files)) {
+        if (entry.dir) continue;
+        const fname = path.split('/').pop();
+        if (wantedInBatch.has(fname)) {
+          outputZip.file(fname, await entry.async('uint8array'));
+          found++;
+          setDlProgress(
+            Math.round(((bi + 0.5) / totalBatches) * 70) + Math.round((found / gemFiles.length) * 25),
+            `Extracted ${found} / ${gemFiles.length} GEM(s)...`
+          );
+        }
       }
       if (dlAbort.signal.aborted) return;
     }
 
     if (found === 0) throw new Error('No matching GEM files found.');
 
-    setDlProgress(97, 'Creating download...');
+    setDlProgress(97, 'Packaging download...');
     const outBlob = await outputZip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 
     setDlProgress(100, `Done! ${found} GEM(s) ready.`);
@@ -466,9 +458,9 @@ async function downloadSelected() {
   } catch (err) {
     if (dlAbort.signal.aborted) return;
     console.error('Download error:', err);
-    document.getElementById('dl-title').textContent = 'Direct download unavailable';
+    document.getElementById('dl-title').textContent = 'Download failed';
     document.getElementById('dl-bar').style.width = '0%';
-    document.getElementById('dl-status').textContent = '';
+    document.getElementById('dl-status').textContent = err.message;
     showDlFallback(gemFiles);
   }
 }
@@ -556,10 +548,13 @@ function buildColCheckboxes() {
 // Filter column index lookup (by key)
 function colIdx(key) { return COLUMNS.findIndex(c => c.key === key); }
 
-// Load data
-fetch('gems_metadata.json')
-  .then(r => r.json())
-  .then(data => {
+// Load data + batch map
+Promise.all([
+  fetch('gems_metadata.json').then(r => r.json()),
+  fetch('gem_batches.json').then(r => r.json())
+])
+  .then(([data, batchMap]) => {
+    gemBatchMap = batchMap;
     document.getElementById('loading').style.display = 'none';
     document.getElementById('gem-table').style.display = 'table';
 
