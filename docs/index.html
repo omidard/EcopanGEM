@@ -755,7 +755,7 @@ function renderGemDetail(model, meta) {
 
     <div id="tab-rxns" class="gem-tab-content active">
       <table id="dt-rxns" class="table table-sm table-striped" style="width:100%">
-        <thead><tr><th>ID</th><th>Name</th><th>Reaction</th><th>GPR</th><th>Lower</th><th>Upper</th><th>Genes</th></tr></thead>
+        <thead><tr><th>ID</th><th>Name</th><th>Reaction</th><th>GPR</th><th>Lower</th><th>Upper</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -803,7 +803,6 @@ function renderGemDetail(model, meta) {
     gpr: r.gene_reaction_rule || '',
     lb: r.lower_bound != null ? r.lower_bound : '',
     ub: r.upper_bound != null ? r.upper_bound : '',
-    ngenes: (r.genes || []).length
   }));
 
   const dtRxns = $('#dt-rxns').DataTable({
@@ -813,7 +812,7 @@ function renderGemDetail(model, meta) {
       { data: 'name', render: d => d.length > 40 ? d.substring(0,40) + '...' : d },
       { data: 'formula', render: d => `<span title="${d}" style="max-width:300px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d}</span>` },
       { data: 'gpr', render: d => `<span title="${d}" style="max-width:180px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d}</span>` },
-      { data: 'lb' }, { data: 'ub' }, { data: 'ngenes' }
+      { data: 'lb' }, { data: 'ub' }
     ]
   });
   gemDetailTables.push(dtRxns);
