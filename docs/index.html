@@ -40,6 +40,24 @@
   .spinner-border { width: 2rem; height: 2rem; }
   footer { text-align: center; padding: 1.5rem; color: #888; font-size: 0.8rem; }
   a.gem-link { font-family: monospace; font-size: 0.82rem; }
+  /* Download modal */
+  .dl-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .dl-modal {
+    background: white; border-radius: 12px; padding: 2rem; width: 480px;
+    max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+  .dl-modal h5 { margin-bottom: 1rem; }
+  .dl-progress { height: 8px; border-radius: 4px; background: #e9ecef; overflow: hidden; margin: 1rem 0; }
+  .dl-progress-bar { height: 100%; background: var(--primary); transition: width 0.3s; border-radius: 4px; }
+  .dl-status { font-size: 0.85rem; color: #666; }
+  .dl-error { color: #dc3545; font-size: 0.85rem; }
+  .dl-fallback { background: #f8f9fa; border-radius: 6px; padding: 0.8rem; margin-top: 0.8rem; font-size: 0.82rem; }
+  .dl-fallback code { display: block; margin-top: 0.4rem; background: #e9ecef; padding: 0.5rem; border-radius: 4px;
+    word-break: break-all; font-size: 0.78rem; }
   /* Column toggle panel */
   .col-toggle-panel {
     background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
@@ -124,6 +142,9 @@
       <button class="btn btn-sm btn-outline-primary" id="btn-copy" onclick="copySelected()" disabled>
         Copy Selected GEM Filenames
       </button>
+      <button class="btn btn-sm btn-primary" id="btn-download-sel" onclick="downloadSelected()" disabled>
+        Download Selected GEMs
+      </button>
     </div>
   </div>
 
@@ -170,6 +191,7 @@
   </p>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
@@ -291,6 +313,149 @@ function updateSelCount() {
   const n = table.rows({ selected: true }).count();
   document.getElementById('sel-count').textContent = n;
   document.getElementById('btn-copy').disabled = n === 0;
+  document.getElementById('btn-download-sel').disabled = n === 0;
+}
+
+// --- Download selected GEMs ---
+function getSelectedGemFiles() {
+  const rows = table.rows({ selected: true }).data();
+  const files = [];
+  for (let i = 0; i < rows.length; i++) files.push(rows[i].gem_file);
+  return files;
+}
+
+function showDownloadModal() {
+  const div = document.createElement('div');
+  div.className = 'dl-overlay';
+  div.id = 'dl-overlay';
+  div.innerHTML = `
+    <div class="dl-modal">
+      <h5 id="dl-title">Downloading GEMs...</h5>
+      <div class="dl-progress"><div class="dl-progress-bar" id="dl-bar" style="width:0%"></div></div>
+      <div class="dl-status" id="dl-status">Preparing...</div>
+      <div id="dl-error-area"></div>
+      <div class="mt-3 text-end">
+        <button class="btn btn-sm btn-outline-secondary" id="dl-cancel-btn" onclick="cancelDownload()">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+function updateDownloadProgress(pct, msg) {
+  const bar = document.getElementById('dl-bar');
+  const status = document.getElementById('dl-status');
+  if (bar) bar.style.width = pct + '%';
+  if (status) status.textContent = msg;
+}
+
+function closeDownloadModal() {
+  const el = document.getElementById('dl-overlay');
+  if (el) el.remove();
+}
+
+let downloadAborted = false;
+let downloadController = null;
+
+function cancelDownload() {
+  downloadAborted = true;
+  if (downloadController) downloadController.abort();
+  closeDownloadModal();
+}
+
+async function downloadSelected() {
+  const gemFiles = getSelectedGemFiles();
+  if (gemFiles.length === 0) return;
+
+  downloadAborted = false;
+  downloadController = new AbortController();
+  showDownloadModal();
+
+  const zipPrefix = 'Ecoli_GEMs_for_Complete_genomes/';
+  const wantedPaths = new Set(gemFiles.map(f => zipPrefix + f));
+
+  try {
+    updateDownloadProgress(0, `Downloading archive from Zenodo (~314 MB)... This may take a few minutes.`);
+
+    const response = await fetch(ZENODO_ZIP, { signal: downloadController.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const contentLength = parseInt(response.headers.get('content-length') || '0');
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      if (contentLength > 0) {
+        const pct = Math.round((received / contentLength) * 60);
+        const mb = (received / 1e6).toFixed(0);
+        const totalMb = (contentLength / 1e6).toFixed(0);
+        updateDownloadProgress(pct, `Downloading: ${mb} / ${totalMb} MB`);
+      }
+      if (downloadAborted) return;
+    }
+
+    updateDownloadProgress(65, `Extracting ${gemFiles.length} selected GEMs...`);
+
+    const blob = new Blob(chunks);
+    const arrayBuffer = await blob.arrayBuffer();
+    const sourceZip = await JSZip.loadAsync(arrayBuffer);
+
+    updateDownloadProgress(75, `Packaging selected GEMs...`);
+
+    const outputZip = new JSZip();
+    let found = 0;
+    for (const [path, entry] of Object.entries(sourceZip.files)) {
+      if (entry.dir) continue;
+      if (wantedPaths.has(path)) {
+        const data = await entry.async('uint8array');
+        const fname = path.split('/').pop();
+        outputZip.file(fname, data);
+        found++;
+        updateDownloadProgress(75 + Math.round((found / gemFiles.length) * 20),
+          `Extracted ${found} / ${gemFiles.length} GEMs...`);
+      }
+      if (downloadAborted) return;
+    }
+
+    if (found === 0) throw new Error('No matching GEM files found in the archive.');
+
+    updateDownloadProgress(96, `Creating download...`);
+    const outBlob = await outputZip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+
+    updateDownloadProgress(100, `Done! ${found} GEMs ready.`);
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(outBlob);
+    a.download = `EcopanGEM_selected_${found}_models.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+
+    setTimeout(closeDownloadModal, 1500);
+
+  } catch (err) {
+    if (downloadAborted) return;
+    console.error('Download failed:', err);
+    const errorArea = document.getElementById('dl-error-area');
+    if (errorArea) {
+      const fileList = gemFiles.map(f => `"${zipPrefix}${f}"`).join(' ');
+      errorArea.innerHTML = `
+        <div class="dl-error">Download failed: ${err.message}</div>
+        <div class="dl-fallback">
+          <strong>Alternative:</strong> Download the archive manually and extract with:
+          <code>unzip Ecoli_GEMs_for_Complete_genomes.zip ${fileList} -d my_gems/</code>
+        </div>`;
+      document.getElementById('dl-title').textContent = 'Download failed';
+      document.getElementById('dl-bar').style.width = '0%';
+      document.getElementById('dl-status').textContent = '';
+      document.getElementById('dl-cancel-btn').textContent = 'Close';
+    }
+  }
 }
 
 // Column toggle
