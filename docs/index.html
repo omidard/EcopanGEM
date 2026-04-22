@@ -58,6 +58,41 @@
   .dl-fallback { background: #f8f9fa; border-radius: 6px; padding: 0.8rem; margin-top: 0.8rem; font-size: 0.82rem; }
   .dl-fallback code { display: block; margin-top: 0.4rem; background: #e9ecef; padding: 0.5rem; border-radius: 4px;
     word-break: break-all; font-size: 0.78rem; }
+  /* GEM detail viewer */
+  .gem-detail-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); z-index: 10000; overflow-y: auto;
+  }
+  .gem-detail {
+    background: white; border-radius: 12px; margin: 2rem auto; padding: 0;
+    max-width: 1100px; width: 95vw; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    max-height: 90vh; display: flex; flex-direction: column;
+  }
+  .gem-detail-header {
+    padding: 1.2rem 1.5rem; border-bottom: 1px solid #eee;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .gem-detail-header h4 { margin: 0; font-size: 1.1rem; }
+  .gem-detail-body { padding: 1rem 1.5rem; overflow-y: auto; flex: 1; }
+  .gem-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8rem; margin-bottom: 1.2rem; }
+  .gem-stat-item {
+    background: var(--accent); border-radius: 8px; padding: 0.8rem; text-align: center;
+  }
+  .gem-stat-item .val { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
+  .gem-stat-item .lbl { font-size: 0.72rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .gem-tabs { border-bottom: 2px solid #eee; margin-bottom: 1rem; display: flex; gap: 0; }
+  .gem-tab {
+    padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px;
+  }
+  .gem-tab:hover { color: #444; }
+  .gem-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .gem-tab-content { display: none; }
+  .gem-tab-content.active { display: block; }
+  .gem-detail table { font-size: 0.8rem; }
+  .gem-detail table thead th { font-size: 0.72rem; text-transform: uppercase; background: #f8f9fa; position: sticky; top: 0; }
+  .gem-detail .dataTables_wrapper { font-size: 0.8rem; }
+  .gem-loading { text-align: center; padding: 3rem; color: #888; }
   /* Column toggle panel */
   .col-toggle-panel {
     background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
@@ -210,7 +245,7 @@ let gemBatchMap = {};  // gem_file -> batch number
 // Column definitions: key, display name, group, visible by default, render function
 const COLUMNS = [
   // -- Core (always visible by default) --
-  { key: 'gem_file',              label: 'GEM File',            group: 'Core',        default: true,  render: d => `<span class="gem-link">${d}</span>` },
+  { key: 'gem_file',              label: 'GEM File',            group: 'Core',        default: true,  render: d => `<a href="#" class="gem-link" onclick="openGemDetail('${d}');return false" title="View reactions, metabolites & genes">${d}</a>` },
   { key: 'assembly_accession',    label: 'Assembly',            group: 'Core',        default: true,  render: d => {
     if (!d) return '';
     if (d.startsWith('GCA_') || d.startsWith('GCF_'))
@@ -244,10 +279,16 @@ const COLUMNS = [
   { key: 'disease',               label: 'Disease',             group: 'Isolation & Host', default: true },
   { key: 'other_clinical',        label: 'Other Clinical',      group: 'Isolation & Host', default: false },
   { key: 'other_environmental',   label: 'Other Environmental', group: 'Isolation & Host', default: false },
+  // -- Model Stats --
+  { key: 'n_reactions',            label: 'Reactions',            group: 'Model Stats',  default: true,  render: d => d ? Number(d).toLocaleString() : '' },
+  { key: 'n_metabolites',          label: 'Metabolites',          group: 'Model Stats',  default: true,  render: d => d ? Number(d).toLocaleString() : '' },
+  { key: 'n_genes',                label: 'Genes',                group: 'Model Stats',  default: true,  render: d => d ? Number(d).toLocaleString() : '' },
+  { key: 'n_exchange',             label: 'Exchange Rxns',        group: 'Model Stats',  default: false, render: d => d ? Number(d).toLocaleString() : '' },
+  { key: 'n_with_gpr',             label: 'Rxns with GPR',        group: 'Model Stats',  default: false, render: d => d ? Number(d).toLocaleString() : '' },
   // -- Genome Stats --
-  { key: 'genome_length',         label: 'Length (Mb)',          group: 'Genome Stats', default: true,  render: d => d ? (d / 1e6).toFixed(2) : '' },
-  { key: 'gc_content',            label: 'GC%',                 group: 'Genome Stats', default: true,  render: d => d ? Number(d).toFixed(1) : '' },
-  { key: 'contigs',               label: 'Contigs',             group: 'Genome Stats', default: true,  render: d => d ? Math.round(d) : '' },
+  { key: 'genome_length',         label: 'Length (Mb)',          group: 'Genome Stats', default: false,  render: d => d ? (d / 1e6).toFixed(2) : '' },
+  { key: 'gc_content',            label: 'GC%',                 group: 'Genome Stats', default: false,  render: d => d ? Number(d).toFixed(1) : '' },
+  { key: 'contigs',               label: 'Contigs',             group: 'Genome Stats', default: false,  render: d => d ? Math.round(d) : '' },
   { key: 'chromosomes',           label: 'Chromosomes',         group: 'Genome Stats', default: false, render: d => d ? Math.round(d) : '' },
   { key: 'plasmids',              label: 'Plasmids',            group: 'Genome Stats', default: false, render: d => d ? Math.round(d) : '' },
   { key: 'patric_cds',            label: 'PATRIC CDS',          group: 'Genome Stats', default: false, render: d => d ? Math.round(d).toLocaleString() : '' },
@@ -626,6 +667,199 @@ Promise.all([
       '<p class="text-danger">Failed to load metadata. Please try refreshing.</p>';
     console.error(err);
   });
+
+// --- GEM Detail Viewer ---
+let gemDetailTables = [];
+
+function closeGemDetail() {
+  gemDetailTables.forEach(t => t.destroy());
+  gemDetailTables = [];
+  const el = document.getElementById('gem-detail-overlay');
+  if (el) el.remove();
+}
+
+async function openGemDetail(gemFile) {
+  const batchNum = gemBatchMap[gemFile];
+  if (!batchNum) { alert('Batch not found for ' + gemFile); return; }
+
+  // Find metadata row
+  const meta = table.rows().data().toArray().find(r => r.gem_file === gemFile) || {};
+
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'gem-detail-overlay';
+  overlay.id = 'gem-detail-overlay';
+  overlay.innerHTML = `
+    <div class="gem-detail">
+      <div class="gem-detail-header">
+        <div>
+          <h4>${gemFile}</h4>
+          <span style="font-size:0.8rem;color:#888">${meta.strain || ''} ${meta.phylogroup ? '| Phylogroup ' + meta.phylogroup : ''} ${meta.MLST ? '| MLST ' + meta.MLST : ''}</span>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="closeGemDetail()">Close</button>
+      </div>
+      <div class="gem-detail-body">
+        <div class="gem-loading" id="gem-detail-loading">
+          <div class="spinner-border spinner-border-sm text-primary"></div>
+          Loading model data...
+        </div>
+        <div id="gem-detail-content" style="display:none"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeGemDetail(); });
+
+  try {
+    const batchUrl = BATCH_URL_BASE + String(batchNum).padStart(2, '0') + '.zip';
+    const resp = await fetch(batchUrl);
+    if (!resp.ok) throw new Error('Failed to fetch batch');
+    const zip = await JSZip.loadAsync(await resp.blob());
+
+    const entry = zip.file(gemFile);
+    if (!entry) throw new Error('GEM not found in batch');
+
+    const modelJson = JSON.parse(await entry.async('text'));
+    document.getElementById('gem-detail-loading').style.display = 'none';
+    document.getElementById('gem-detail-content').style.display = 'block';
+
+    renderGemDetail(modelJson, meta);
+  } catch (err) {
+    document.getElementById('gem-detail-loading').innerHTML =
+      `<span class="text-danger">Failed to load model: ${err.message}</span>`;
+  }
+}
+
+function renderGemDetail(model, meta) {
+  const rxns = model.reactions || [];
+  const mets = model.metabolites || [];
+  const genes = model.genes || [];
+  const exRxns = rxns.filter(r => (r.id || '').startsWith('EX_'));
+  const withGpr = rxns.filter(r => (r.gene_reaction_rule || '').trim());
+
+  const content = document.getElementById('gem-detail-content');
+  content.innerHTML = `
+    <div class="gem-stat-grid">
+      <div class="gem-stat-item"><div class="val">${rxns.length.toLocaleString()}</div><div class="lbl">Reactions</div></div>
+      <div class="gem-stat-item"><div class="val">${mets.length.toLocaleString()}</div><div class="lbl">Metabolites</div></div>
+      <div class="gem-stat-item"><div class="val">${genes.length.toLocaleString()}</div><div class="lbl">Genes</div></div>
+      <div class="gem-stat-item"><div class="val">${exRxns.length}</div><div class="lbl">Exchange Rxns</div></div>
+      <div class="gem-stat-item"><div class="val">${withGpr.length.toLocaleString()}</div><div class="lbl">With GPR</div></div>
+      <div class="gem-stat-item"><div class="val">${model.id || '-'}</div><div class="lbl">Model ID</div></div>
+    </div>
+
+    <div class="gem-tabs">
+      <div class="gem-tab active" onclick="switchGemTab(this, 'tab-rxns')">Reactions (${rxns.length})</div>
+      <div class="gem-tab" onclick="switchGemTab(this, 'tab-mets')">Metabolites (${mets.length})</div>
+      <div class="gem-tab" onclick="switchGemTab(this, 'tab-genes')">Genes (${genes.length})</div>
+    </div>
+
+    <div id="tab-rxns" class="gem-tab-content active">
+      <table id="dt-rxns" class="table table-sm table-striped" style="width:100%">
+        <thead><tr><th>ID</th><th>Name</th><th>Reaction</th><th>GPR</th><th>Lower</th><th>Upper</th><th>Genes</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="tab-mets" class="gem-tab-content">
+      <table id="dt-mets" class="table table-sm table-striped" style="width:100%">
+        <thead><tr><th>ID</th><th>Name</th><th>Formula</th><th>Compartment</th><th>Charge</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="tab-genes" class="gem-tab-content">
+      <table id="dt-genes" class="table table-sm table-striped" style="width:100%">
+        <thead><tr><th>Gene ID</th><th>Name</th><th>Reactions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>`;
+
+  // Build reaction formula from metabolites dict
+  function rxnFormula(r) {
+    const metabs = r.metabolites || {};
+    const left = [], right = [];
+    for (const [mid, coeff] of Object.entries(metabs)) {
+      const c = Math.abs(coeff);
+      const label = c === 1 ? mid : c + ' ' + mid;
+      if (coeff < 0) left.push(label);
+      else right.push(label);
+    }
+    const arrow = (r.lower_bound || 0) < 0 ? ' <=> ' : ' => ';
+    return left.join(' + ') + arrow + right.join(' + ');
+  }
+
+  // Gene → reaction count
+  const geneRxnCount = {};
+  rxns.forEach(r => {
+    (r.genes || []).forEach(g => {
+      const gid = g.id || g;
+      geneRxnCount[gid] = (geneRxnCount[gid] || 0) + 1;
+    });
+  });
+
+  // Reactions table
+  const rxnData = rxns.map(r => ({
+    id: r.id || '',
+    name: r.name || '',
+    formula: rxnFormula(r),
+    gpr: r.gene_reaction_rule || '',
+    lb: r.lower_bound != null ? r.lower_bound : '',
+    ub: r.upper_bound != null ? r.upper_bound : '',
+    ngenes: (r.genes || []).length
+  }));
+
+  const dtRxns = $('#dt-rxns').DataTable({
+    data: rxnData, deferRender: true, pageLength: 20, order: [[0, 'asc']],
+    columns: [
+      { data: 'id' },
+      { data: 'name', render: d => d.length > 40 ? d.substring(0,40) + '...' : d },
+      { data: 'formula', render: d => `<span title="${d}" style="max-width:300px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d}</span>` },
+      { data: 'gpr', render: d => `<span title="${d}" style="max-width:180px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d}</span>` },
+      { data: 'lb' }, { data: 'ub' }, { data: 'ngenes' }
+    ]
+  });
+  gemDetailTables.push(dtRxns);
+
+  // Metabolites table
+  const metData = mets.map(m => ({
+    id: m.id || '',
+    name: m.name || '',
+    formula: m.formula || '',
+    compartment: m.compartment || '',
+    charge: m.charge != null ? m.charge : ''
+  }));
+
+  const dtMets = $('#dt-mets').DataTable({
+    data: metData, deferRender: true, pageLength: 20, order: [[0, 'asc']],
+    columns: [
+      { data: 'id' }, { data: 'name' }, { data: 'formula' },
+      { data: 'compartment' }, { data: 'charge' }
+    ]
+  });
+  gemDetailTables.push(dtMets);
+
+  // Genes table
+  const geneData = genes.map(g => ({
+    id: g.id || g,
+    name: g.name || '',
+    nrxns: geneRxnCount[g.id || g] || 0
+  }));
+
+  const dtGenes = $('#dt-genes').DataTable({
+    data: geneData, deferRender: true, pageLength: 20, order: [[0, 'asc']],
+    columns: [
+      { data: 'id' }, { data: 'name' }, { data: 'nrxns' }
+    ]
+  });
+  gemDetailTables.push(dtGenes);
+}
+
+function switchGemTab(el, tabId) {
+  document.querySelectorAll('.gem-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.gem-tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+  // Adjust columns on tab switch (DataTables needs this for hidden tabs)
+  gemDetailTables.forEach(t => t.columns.adjust());
+}
 </script>
 </body>
 </html>
