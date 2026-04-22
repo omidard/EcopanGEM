@@ -78,7 +78,7 @@ This creates the following layout inside `data/`:
 ```
 data/
 ├── ref_model_dir/
-│   └── marlbr2.mat                        # Reference model (iML1515 derivative)
+│   └── marlbr2.mat                        # Reference model (Entrobacteriaceae)
 ├── gapfilled_curated/
 │   └── *.json.json                         # Curated GEMs (from Ecoli_GEMs_for_Complete_genomes.zip)
 ├── neighbors/
