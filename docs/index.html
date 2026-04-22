@@ -202,19 +202,8 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const ZENODO_ZIP = 'https://zenodo.org/records/17581962/files/Ecoli_GEMs_for_Complete_genomes.zip?download=1';
-// GitHub API asset URLs (support CORS with Accept: application/octet-stream)
-const BATCH_ASSETS = {
-  1: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544104',
-  2: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544134',
-  3: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544191',
-  4: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544237',
-  5: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544281',
-  6: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544387',
-  7: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544414',
-  8: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544450',
-  9: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544517',
-  10: 'https://api.github.com/repos/omidard/EcopanGEM/releases/assets/402544563'
-};
+// Batch zips served from same origin (docs/gems/) — no CORS issues
+const BATCH_URL_BASE = 'gems/gems_batch_';
 let table;
 let gemBatchMap = {};  // gem_file -> batch number
 
@@ -424,18 +413,14 @@ async function downloadSelected() {
     for (let bi = 0; bi < batchNums.length; bi++) {
       const batchNum = batchNums[bi];
       const wantedInBatch = new Set(neededBatches.get(batchNum));
-      const batchUrl = BATCH_ASSETS[batchNum];
-      if (!batchUrl) throw new Error(`No download URL for batch ${batchNum}`);
+      const batchUrl = BATCH_URL_BASE + String(batchNum).padStart(2, '0') + '.zip';
 
       setDlProgress(
         Math.round((bi / totalBatches) * 70),
         `Downloading batch ${bi + 1}/${totalBatches} (~32 MB)...`
       );
 
-      const resp = await fetch(batchUrl, {
-        signal: dlAbort.signal,
-        headers: { 'Accept': 'application/octet-stream' }
-      });
+      const resp = await fetch(batchUrl, { signal: dlAbort.signal });
       if (!resp.ok) throw new Error(`Failed to download batch ${batchNum}: HTTP ${resp.status}`);
 
       const batchBlob = await resp.blob();
