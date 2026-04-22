@@ -5,10 +5,13 @@ from multiprocessing import Pool, Manager, Lock, Value
 from tqdm import tqdm
 import logging
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
+
 # Directory paths
-input_dir = '/home/omidard/gapfilled3'
-output_dir = '/home/omidard/gapfilled_curated'
-special_model_path = '/home/omidard/iB21_1397.json'
+input_dir = os.path.join(DATA_DIR, 'gapfilled3')
+output_dir = os.path.join(DATA_DIR, 'gapfilled_curated')
+special_model_path = os.path.join(DATA_DIR, 'iB21_1397.json')
 
 # Dictionary for missing reactions
 missing_reactions = {}

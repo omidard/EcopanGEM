@@ -1,12 +1,16 @@
+import os
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
+
 # Load the necessary dataframes
-pa_gene_allt_copy2 = pd.read_pickle('/home/omidard/neighbors/pa_gene_allt_copy2.pkl')
-locustags_genes_mapping = pd.read_pickle('/home/omidard/neighbors/locustags_genes_mapping.pkl')
-pangenome_df = pd.read_pickle('/home/omidard/neighbors/pangenome_df.pkl')
+pa_gene_allt_copy2 = pd.read_pickle(os.path.join(DATA_DIR, 'neighbors', 'pa_gene_allt_copy2.pkl'))
+locustags_genes_mapping = pd.read_pickle(os.path.join(DATA_DIR, 'neighbors', 'locustags_genes_mapping.pkl'))
+pangenome_df = pd.read_pickle(os.path.join(DATA_DIR, 'neighbors', 'pangenome_df.pkl'))
 
 # Step 1: Prepare gene-to-category mapping for fast lookup
 gene_to_category = pangenome_df.set_index('Gene')['Category'].to_dict()
@@ -61,6 +65,7 @@ if __name__ == '__main__':
     final_df = process_all_reactions(expanded_df)
 
     # Save the final DataFrame
-    final_df.to_csv('/home/omidard/neighbors/final_gene_neighborhood.csv', index=False)
-    print('Final dataframe saved as /home/omidard/neighbors/final_gene_neighborhood.csv')
+    out_path = os.path.join(DATA_DIR, 'neighbors', 'final_gene_neighborhood.csv')
+    final_df.to_csv(out_path, index=False)
+    print(f'Final dataframe saved as {out_path}')
 

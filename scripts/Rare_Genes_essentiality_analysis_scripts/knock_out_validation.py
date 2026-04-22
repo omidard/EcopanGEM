@@ -6,6 +6,9 @@ from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 import signal
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "..", "data"))
+
 # Timeout exception class
 class TimeoutException(Exception):
     pass
@@ -24,10 +27,10 @@ model_ids = [
 ]
 
 # Base directory for models
-models_folder = '/home/omidard/gapfilled_curated'
+models_folder = os.path.join(DATA_DIR, 'gapfilled_curated')
 
 # Output directory for results
-output_file = '/home/omidard/knock_out_validation_combined_complete.csv'
+output_file = os.path.join(DATA_DIR, 'knock_out_validation_combined_complete.csv')
 
 def calculate_knockout_fitness(args):
     """Calculate fitness for a single reaction knockout."""

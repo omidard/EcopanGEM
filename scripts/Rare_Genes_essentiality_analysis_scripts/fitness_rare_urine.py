@@ -6,6 +6,9 @@ from tqdm import tqdm
 from media import urine_media
 import signal
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "..", "data"))
+
 # Define a timeout handler
 class TimeoutException(Exception):
     pass
@@ -23,7 +26,7 @@ def calculate_knockout_fitness(args):
     model_id = f"{model_id}.json.json"
 
     # Load the original model
-    model_file = os.path.join('/home/omidard/gapfilled_curated', model_id)
+    model_file = os.path.join(DATA_DIR, 'gapfilled_curated', model_id)
     original_model = load_json_model(model_file)
 
     # Apply media condition
@@ -95,7 +98,7 @@ def calculate_knockout_fitness(args):
 
 def get_wildtype_growth_rate(model_id, media_function, media_name):
     model_id_str = f"{model_id}.json.json"
-    model_file = os.path.join('/home/omidard/gapfilled_curated', model_id_str)
+    model_file = os.path.join(DATA_DIR, 'gapfilled_curated', model_id_str)
     model = load_json_model(model_file)
     media_function(model)
     wildtype_growth_rate = model.optimize().objective_value
@@ -103,7 +106,7 @@ def get_wildtype_growth_rate(model_id, media_function, media_name):
 
 def run_simulation():
     # Load fitness_rare DataFrame
-    fitness_rare = pd.read_csv('/home/omidard/fitness_rare.csv', index_col=0, dtype=str)
+    fitness_rare = pd.read_csv(os.path.join(DATA_DIR, 'fitness_rare.csv'), index_col=0, dtype=str)
 
     # Extract models and reactions
     model_ids = fitness_rare.index[921:].tolist()
@@ -145,7 +148,7 @@ def run_simulation():
         processed_df = pd.DataFrame(processed_data)
 
         # Save the DataFrame to a CSV file
-        output_file = f'/home/omidard/fitness_results/fitness_{model_id}.csv'
+        output_file = os.path.join(DATA_DIR, 'fitness_results', f'fitness_{model_id}.csv')
         print(f"Saving DataFrame to {output_file}...")
         try:
             processed_df.to_csv(output_file, index=False)
@@ -157,5 +160,5 @@ def run_simulation():
 
 if __name__ == "__main__":
     # Ensure the output directory exists
-    os.makedirs('/home/omidard/fitness_results', exist_ok=True)
+    os.makedirs(os.path.join(DATA_DIR, 'fitness_results'), exist_ok=True)
     run_simulation()

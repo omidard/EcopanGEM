@@ -1,11 +1,14 @@
-import pandas as pd
+import os
 import pandas as pd
 from bioservices import KEGG
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
 
 
 
-file_path = "/home/omidard/tidy_missing_locci_ecoli.csv"
+
+file_path = os.path.join(DATA_DIR, "tidy_missing_locci_ecoli.csv")
 # Read the file into a DataFrame
 df = pd.read_csv(file_path)
 
@@ -152,6 +155,6 @@ filtered_ec['Reaction'] = reactions
 filtered_ec['All_Reac'] = all_reacs
 filtered_ec['PMIDs'] = pmid_lists
 
-filtered_ec.to_csv("/home/omidard/ecoli_missed_reactions_refined.csv", index=False)
+filtered_ec.to_csv(os.path.join(DATA_DIR, "ecoli_missed_reactions_refined.csv"), index=False)
 
 

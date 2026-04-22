@@ -1,13 +1,11 @@
 # E. coli Pangenome-Scale Metabolic Model Reconstruction and Analysis
 
-**“Pangenome-Scale Metabolic Network Reconstruction Reveals a Diverse Genetic Basis for Metabolic Reactions.”**
+**"Pangenome-Scale Metabolic Network Reconstruction Reveals a Diverse Genetic Basis for Metabolic Reactions."**
 
-This repository contains data and code for the pangenome-scale metabolic reconstruction of *Escherichia coli*, enabling detailed analysis of its metabolic diversity. By analyzing gene–protein–reaction (GPR) associations across thousands of strains, this work quantifies the genetic basis of *E. coli* metabolism and the evolutionary dynamics shaping metabolic functions.
+This repository contains data and code for the pangenome-scale metabolic reconstruction of *Escherichia coli*, enabling detailed analysis of its metabolic diversity. By analyzing gene-protein-reaction (GPR) associations across thousands of strains, this work quantifies the genetic basis of *E. coli* metabolism and the evolutionary dynamics shaping metabolic functions.
 
 > **Data availability (Zenodo)**
-
 > * Core bundle (scripts + supporting data + panGEM): https://zenodo.org/records/17581962
-
 
 ---
 
@@ -31,7 +29,7 @@ Escherichia coli [https://doi.org/10.1371/journal.ppat.1013775].</em></p>
 
 ## Overview
 
-We constructed strain-specific genome-scale metabolic models (GEMs) for **2,377 complete *E. coli* genomes**, covering ~2,700 reactions. The resulting pangenome-scale model (“panGEM”) links genotype to phenotype, supports gap-filling and targeted curation, and enables downstream analyses such as Biolog growth prediction, gene-neighborhood mining, and GPR/allele mapping.
+We constructed strain-specific genome-scale metabolic models (GEMs) for **2,377 complete *E. coli* genomes**, covering ~2,700 reactions. The resulting pangenome-scale model ("panGEM") links genotype to phenotype, supports gap-filling and targeted curation, and enables downstream analyses such as Biolog growth prediction, gene-neighborhood mining, and GPR/allele mapping.
 
 ---
 
@@ -42,46 +40,87 @@ We constructed strain-specific genome-scale metabolic models (GEMs) for **2,377 
 ```bash
 # Clone
 git clone https://github.com/omidard/EcopanGEM.git
-
+cd EcopanGEM
 
 # Conda env
-conda env create -f EcopanGEM/scripts/environment.yml
+conda env create -f scripts/environment.yml
 conda activate panGEM
 
 # External binaries (required)
 conda install -c bioconda blast cd-hit   # provides makeblastdb/blastp/blastn + cd-hit
 ```
 
-### 2) Place data (from Zenodo)
+### 2) Download data from Zenodo
 
-* Core bundle + GEMs: [https://zenodo.org/records/17581962) 
+The Zenodo record contains 15 individual files (~5.4 GB total). The `data/Makefile` downloads all files, unzips archives, and organizes them into the directory structure expected by the scripts:
 
-Extract into `data/` and keep this layout:
+```bash
+cd data && make fetch-data
+```
+
+This creates the following layout inside `data/`:
 
 ```
 data/
-├─ ref_model_dir/marlbr2.mat
-├─ target_genome_dir/*.gbk
-├─ prokka_genomes/*.gbk
-├─ biolog_panGEM.csv
-├─ iB21_1397.json
-├─ merged_df.csv
-├─ neighbors/
-│  ├─ pa_gene_allt_copy2.pkl
-│  ├─ locustags_genes_mapping.pkl
-│  └─ pangenome_df.pkl
-└─ (other folders are created by scripts)
+├── ref_model_dir/
+│   └── marlbr2.mat                        # Reference model (iML1515 derivative)
+├── gapfilled_curated/
+│   └── *.json.json                         # Curated GEMs (from Ecoli_GEMs_for_Complete_genomes.zip)
+├── neighbors/
+│   ├── locustags_genes_mapping.pkl         # Locus-tag to gene-name mapping (2.4 GB)
+│   └── all_reactions_gene_neighborhood.csv # Pre-computed gene neighborhood results
+├── pangenome_s/
+│   ├── cluster_to_locus_*.json             # Cluster-to-locus maps per CD-HIT threshold
+│   └── presence_absence_matrix_*.csv       # Presence/absence matrices per threshold
+├── biolog.csv                              # Biolog phenotype data (original name)
+├── biolog_panGEM.csv                       # Same file, renamed to match scripts
+├── universal_model.json                    # Universal model (original name)
+├── iB21_1397.json                          # Same file, renamed to match scripts
+├── header_to_allele.pickle                 # Header-to-allele mapping
+├── ecoli_gprs.csv                          # GPR matrix (reaction x GEM)
+├── phylon_locustags_df.csv                 # Phylon locus-tag dataframe
+├── pangenome.csv                           # Pangenome presence/absence
+├── curated_metadata_mash_filtered.pickle   # Curated metadata
+└── Unique_ModelSEED_Reaction_Aliases.txt   # ModelSEED reaction aliases
 ```
 
-> If your local paths differ from the defaults, edit the corresponding script arguments or variables in `scripts/`.
+#### Zenodo file-to-script mapping
 
-#### 2b) (Optional one-liner) Fetch core data via `Makefile`
+| Zenodo file | Placed at | Used by |
+|-------------|-----------|---------|
+| `marlbr2.mat` | `ref_model_dir/marlbr2.mat` | `pangem.py`, `ecoli_gapfilling6.py`, `add_spont_to_gems_ecoli4.py` |
+| `Ecoli_GEMs_for_Complete_genomes.zip` | `gapfilled_curated/*.json.json` | `biolog_ecoli_prediction.py`, essentiality scripts |
+| `biolog.csv` | `biolog_panGEM.csv` | `biolog_ecoli_prediction.py` |
+| `universal_model.json` | `iB21_1397.json` | `Eco_panGEM_curation.py` |
+| `locustags_genes_mapping.pkl` | `neighbors/locustags_genes_mapping.pkl` | `genes_neighborhood_analysis_total_preparation.py` |
+| `header_to_allele.pickle.zip` | `header_to_allele.pickle` | `eco_gems_allels.py` |
+| `ecoli_gprs.csv.zip` | `ecoli_gprs.csv` | Pre-computed output (GPR/allele matrix) |
+| `pangenome.csv.zip` | `pangenome.csv` | Pangenome analysis |
+| `pangenome_s.zip` | `pangenome_s/` | `pangenome_sensitivity_results.py` |
+| `all_reactions_gene_neighborhood.csv.zip` | `neighbors/all_reactions_gene_neighborhood.csv` | Pre-computed neighborhood output |
+| `phylon_locustags_df.csv.zip` | `phylon_locustags_df.csv` | Phylon analysis |
+| `curated_metadata_mash_filtered.pickle` | `curated_metadata_mash_filtered.pickle` | Metadata filtering |
+| `Unique_ModelSEED_Reaction_Aliases.txt` | `Unique_ModelSEED_Reaction_Aliases.txt` | Reaction alias lookups |
 
-If you prefer, you can download the core Zenodo bundle into `data/` with a single command (creates `data/Data.zip`, ignored by Git). The archive corresponds to the “Data.zip” file listed on the Zenodo record. ([Zenodo][1])
+#### Files NOT on Zenodo (produced by the pipeline or obtained from NCBI)
+
+| Path | How to obtain |
+|------|---------------|
+| `data/target_genome_dir/*.gbk` | Download complete *E. coli* genomes from NCBI Assembly |
+| `data/prokka_genomes/*.gbk` | Re-annotate genomes with Prokka (or use GBK from NCBI) |
+| `data/output_models_dir/` | Produced by `pangem.py` (Step C1) |
+| `data/gapfilled/` | Produced by `add_spont_to_gems_ecoli4.py` (Step C4) |
+| `data/gapfilled3/` | Produced by `ecoli_gapfilling6.py` (Step C2) |
+| `data/merged_df.csv` | Produced by the missing-reactions sub-pipeline (Step C6) |
+| `data/fitness_rare.csv` | Produced by essentiality analysis |
+
+#### Overriding the data directory
+
+All scripts resolve `data/` relative to their own location. To use a different data directory, set the `ECOPANGEM_DATA` environment variable:
 
 ```bash
-make data      # downloads to data/Data.zip
-make clean     # removes downloaded data
+export ECOPANGEM_DATA=/path/to/your/data
+python scripts/ecoli_gapfilling6.py
 ```
 
 ---
@@ -104,7 +143,7 @@ make clean     # removes downloaded data
      --checkm2_db /path/to/checkm2_db    # omit to skip CheckM2
    ```
 
-2. **Filter genomes (dry-run → apply)**
+2. **Filter genomes (dry-run -> apply)**
 
    ```bash
    # dry-run (prints reasons; no changes)
@@ -130,10 +169,10 @@ make clean     # removes downloaded data
 ```bash
 python scripts/pangenome_sensitivity_gbk.py
 # Interactive prompts will ask for:
-# • BASE dir (for logs/outputs), ANNOTATIONS dir, PANGENOME dir
-# • cd-hit path (e.g., /usr/bin/cd-hit), threads (e.g., 32)
-# • thresholds: 65,70,75,80,85,90,95  (Enter for 80)
-# • -aL coverage for longer sequence (e.g., 80)
+# - BASE dir (for logs/outputs), ANNOTATIONS dir, PANGENOME dir
+# - cd-hit path (e.g., cd-hit if on PATH), threads (e.g., 32)
+# - thresholds: 65,70,75,80,85,90,95  (Enter for 80)
+# - -aL coverage for longer sequence (e.g., 80)
 ```
 
 **Outputs (per X):**
@@ -144,69 +183,74 @@ python scripts/pangenome_sensitivity_gbk.py
 
 ```bash
 python scripts/pangenome_sensitivity_results.py
-# reads the above outputs and produces:
+# reads the above outputs from data/pangenome_s/ and produces:
 # figures/clusters_vs_cdhit_threshold.(png|svg)
 # figures/CAR_*_cdhit80.(png|svg)  + CSV tables
 ```
 
 ---
 
-### C) GEM Drafting → Gap-filling → Curation → Phenotype
+### C) GEM Drafting -> Gap-filling -> Curation -> Phenotype
 
-1. **Orthology → draft GEMs**
+1. **Orthology -> draft GEMs**
 
    ```bash
    python scripts/pangem.py
    ```
+   *Outputs: `output_models_dir/`, `initial_models_dir/`, `present_absence_dir/`*
 
 2. **Essential gap-filling (M9-like)**
 
    ```bash
    python scripts/ecoli_gapfilling6.py
    ```
+   *Reads: `output_models_dir/`, `ref_model_dir/marlbr2.mat`. Writes: `gapfilled3/`*
 
-3. **Curation sweep (IDs, bounds, GPR merges, add/remove reactions)**
-
-   ```bash
-   python scripts/Eco_panGEM_curation.py
-   ```
-
-4. **Add spontaneous reactions (`s0001`)**
+3. **Add spontaneous reactions (`s0001`)**
 
    ```bash
    python scripts/add_spont_to_gems_ecoli4.py
    ```
+   *Reads/writes: `gapfilled/`*
+
+4. **Curation sweep (IDs, bounds, GPR merges, add/remove reactions)**
+
+   ```bash
+   python scripts/Eco_panGEM_curation.py
+   ```
+   *Reads: `gapfilled3/`, `iB21_1397.json`. Writes: `gapfilled_curated/`*
 
 5. **Biolog phenotype prediction (M9 + carbon sources)**
 
    ```bash
    python scripts/biolog_ecoli_prediction.py
    ```
+   *Reads: `gapfilled_curated/`, `biolog_panGEM.csv`. Writes: `biolog_data_with_predictions_panGEM_paper.csv`*
 
-6. **Missing genes → KEGG/EC → add curated reactions (parallel)**
+6. **Missing genes -> KEGG/EC -> add curated reactions (parallel)**
 
    ```bash
-   # 4-step track:
    python scripts/gems_missing_genes.py
    python scripts/miss_locci_df_preparation.py
    python scripts/gems_missing_reactions_kegg.py
    python scripts/add_missed_reactions_ecoli.py
    ```
+   *Reads: `prokka_genomes/`, `output_models_dir/`. Writes: intermediate CSVs, then updates `gapfilled3/`*
 
-7. **Allele/GPR export (reaction × GEM)**
+7. **Allele/GPR export (reaction x GEM)**
 
    ```bash
    python scripts/eco_gems_allels.py
    ```
+   *Reads: `gapfilled3/`, `header_to_allele.pickle`. Writes: `ecoli_gprs.csv`*
 
 8. **Gene-neighborhood mining (GBK parsing; multiprocessing)**
 
    ```bash
-   # prepare & expand
    python scripts/genes_neighborhood_analysis_total_preparation.py
-   # legacy/alternate expansion pipeline
    python scripts/genes_neighborhood_analysis_total2.py
    ```
+   *Reads: `neighbors/*.pkl`, `prokka_genomes/`. Writes: `neighbors/final_gene_neighborhood.csv`, `neighbors/all_reactions_gene_neighborhood.csv`*
 
 ---
 
@@ -224,37 +268,34 @@ python scripts/pangenome_sensitivity_results.py
 
 ## Scripts (what each does)
 
-* `genome_qc.py` — GBFF/GenBank-aware QC; writes FASTA, contig/N50/GC stats; optional **CheckM2** completeness/contamination.
-* `genome_qc_filtering.py` — robust filtering (hard guards + median/MAD) with dry-run/apply (quarantine or delete).
-* `genome_qc.sh` — wrapper to run QC + CheckM2 with consistent args.
-* `pangenome_sensitivity_gbk.py` — merges proteins (prefers GBK), runs **CD-HIT** at one/many identities, writes `cdhit_full_*.faa`, `*.clstr`, presence/absence matrices, and cluster→locus maps.
-* `pangenome_sensitivity_results.py` — generates publication-ready figures and CSVs for cluster counts vs threshold and CAR sensitivity (@80%).
-* `pangem.py` — reciprocal BLAST + nucleotide checks → presence/absence → **draft GEMs**.
-* `ecoli_gapfilling6.py` — adds only **essential** missing reactions from reference under M9 conditions.
-* `Eco_panGEM_curation.py` — targeted curation: ID changes, bounds, GPR merges, add/remove reactions per instruction map.
-* `add_spont_to_gems_ecoli4.py` — adds spontaneous (`s0001`) reactions.
-* `biolog_ecoli_prediction.py` — FBA growth predictions on M9 with specified carbon sources; appends to Biolog table.
-* `gems_missing_genes.py → miss_locci_df_preparation.py → gems_missing_reactions_kegg.py → add_missed_reactions_ecoli.py` — detects genes present in genomes but absent from GEMs; maps to KEGG/EC; fetches reaction metadata/PMIDs; adds curated reactions/GPRs in parallel.
-* `eco_gems_allels.py` — exports reaction×GEM allele/GPR matrix.
-* `genes_neighborhood_analysis_total_preparation.py` — builds reaction-specific gene-neighborhood tables (multiprocessing; GBK parsing).
-* `genes_neighborhood_analysis_total2.py` — alternate/legacy neighborhood expansion/extraction.
-
-> Script list cross-checked with your repo’s `scripts/` directory. ([GitHub][3])
+* `genome_qc.py` -- GBFF/GenBank-aware QC; writes FASTA, contig/N50/GC stats; optional **CheckM2** completeness/contamination.
+* `genome_qc_filtering.py` -- robust filtering (hard guards + median/MAD) with dry-run/apply (quarantine or delete).
+* `genome_qc.sh` -- wrapper to run QC + CheckM2 with consistent args.
+* `pangenome_sensitivity_gbk.py` -- merges proteins (prefers GBK), runs **CD-HIT** at one/many identities, writes `cdhit_full_*.faa`, `*.clstr`, presence/absence matrices, and cluster->locus maps.
+* `pangenome_sensitivity_results.py` -- generates publication-ready figures and CSVs for cluster counts vs threshold and CAR sensitivity (@80%).
+* `pangem.py` -- reciprocal BLAST + nucleotide checks -> presence/absence -> **draft GEMs**.
+* `ecoli_gapfilling6.py` -- adds only **essential** missing reactions from reference under M9 conditions.
+* `Eco_panGEM_curation.py` -- targeted curation: ID changes, bounds, GPR merges, add/remove reactions per instruction map.
+* `add_spont_to_gems_ecoli4.py` -- adds spontaneous (`s0001`) reactions.
+* `biolog_ecoli_prediction.py` -- FBA growth predictions on M9 with specified carbon sources; appends to Biolog table.
+* `gems_missing_genes.py -> miss_locci_df_preparation.py -> gems_missing_reactions_kegg.py -> add_missed_reactions_ecoli.py` -- detects genes present in genomes but absent from GEMs; maps to KEGG/EC; fetches reaction metadata/PMIDs; adds curated reactions/GPRs in parallel.
+* `eco_gems_allels.py` -- exports reaction x GEM allele/GPR matrix.
+* `genes_neighborhood_analysis_total_preparation.py` -- builds reaction-specific gene-neighborhood tables (multiprocessing; GBK parsing).
+* `genes_neighborhood_analysis_total2.py` -- alternate/legacy neighborhood expansion/extraction.
 
 ---
 
 ## Environment & Requirements
 
-* **Python:** ≥ 3.10
+* **Python:** >= 3.10
 * **Packages:** see `environment.yml` in this repo (COBRApy, pandas, numpy, scipy, tqdm, Biopython, bioservices, matplotlib, rich, requests, joblib, scikit-learn, openpyxl, pyyaml, python-dotenv, etc.).
 * **External binaries:** **BLAST+** (`makeblastdb`, `blastp`, `blastn`) and **CD-HIT** must be on `PATH`.
-* **Hardware:** Several steps default to high parallelism (64–96 workers). Reduce pool sizes if RAM/CPU is constrained.
+* **Hardware:** Several steps default to high parallelism (64-96 workers). Reduce pool sizes if RAM/CPU is constrained.
 
 ---
 
 ## Notes & Tips
 
-* Historical absolute paths (e.g., `/home/omidard/...`) are mirrored by the `data/` layout above. If you use a different structure, pass explicit CLI args or edit the variables at the top of the scripts.
 * KEGG queries via `bioservices` may rate-limit; consider chunking or local caching.
 * Some curation code expects `.json` model files and specific IDs/bounds (kept consistent across steps here).
 
@@ -264,12 +305,12 @@ python scripts/pangenome_sensitivity_results.py
 
 If you use this repository or derived models, please cite:
 
-> **“Annotating the Pangenome Reveals the Diversity in the Genetic Basis for Metabolic Enzymes”**
+> **"Annotating the Pangenome Reveals the Diversity in the Genetic Basis for Metabolic Enzymes"**
 
 ---
 
 ## Contact
 
-**Omid Ardalani** — [omidard@biosustain.dtu.dk](mailto:omidard@biosustain.dtu.dk) · Issues and PRs welcome.
+**Omid Ardalani** -- [omidard@biosustain.dtu.dk](mailto:omidard@biosustain.dtu.dk) -- Issues and PRs welcome.
 
 ---

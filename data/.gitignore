@@ -1,1 +1,6 @@
-data/
+# Ignore all downloaded/generated data files.
+# Only Makefile, readme.text, and .gitignore are tracked.
+*
+!Makefile
+!readme.text
+!.gitignore

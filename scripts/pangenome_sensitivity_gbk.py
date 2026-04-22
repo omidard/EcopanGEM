@@ -332,7 +332,7 @@ def main():
     annotation_dir = ask_dir("Enter ANNOTATIONS dir (contains *.gbk OR per-genome *.faa):",
                              default=default_annotations, must_exist=True)
     pangenome_dir = ask_dir("Enter PANGENOME output dir:", default=default_pangenome, must_exist=False)
-    cd_hit_bin = ask_file("Enter path to CD-HIT binary:", default=Path("/home/omidard/cdhit/cd-hit"))
+    cd_hit_bin = ask_file("Enter path to CD-HIT binary:", default=Path("cd-hit"))
 
     # Config
     try:

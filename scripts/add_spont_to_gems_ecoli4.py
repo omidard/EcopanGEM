@@ -2,8 +2,11 @@ import os
 import cobra
 import multiprocessing
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
+
 # Load the reference model (in MATLAB .mat format)
-ref_model = cobra.io.load_matlab_model('/home/omidard/ref_model_dir/marlbr2.mat')
+ref_model = cobra.io.load_matlab_model(os.path.join(DATA_DIR, 'ref_model_dir', 'marlbr2.mat'))
 
 # Filter reactions in the reference model
 target_reactions = [reaction for reaction in ref_model.reactions if 's0001' in [gene.id for gene in reaction.genes]]
@@ -18,10 +21,10 @@ def process_target_model(target_model_path):
 
     # Save the modified target model (in JSON format)
     target_model_filename = os.path.basename(target_model_path)
-    cobra.io.json.save_json_model(target_model, f'/home/omidard/gapfilled/{target_model_filename}')
+    cobra.io.json.save_json_model(target_model, os.path.join(DATA_DIR, 'gapfilled', target_model_filename))
 
 # List of target model file paths (in JSON format)
-target_model_dir = '/home/omidard/gapfilled'
+target_model_dir = os.path.join(DATA_DIR, 'gapfilled')
 target_model_files = [os.path.join(target_model_dir, filename) for filename in os.listdir(target_model_dir) if filename.endswith('.json')]
 
 # Use multiprocessing to parallelize the process

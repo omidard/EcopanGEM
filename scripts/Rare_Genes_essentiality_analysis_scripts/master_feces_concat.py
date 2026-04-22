@@ -1,8 +1,11 @@
 import pandas as pd
 import os
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "..", "data"))
+
 # Define the directory and the file pattern
-directory = '/home/omidard/fitness_results'
+directory = os.path.join(DATA_DIR, 'fitness_results')
 file_pattern = 'feces_fitness_'
 
 # List all files in the directory

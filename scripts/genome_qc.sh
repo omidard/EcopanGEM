@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # ---------- Config (adjust if you like) ----------
-BASE_DIR_DEFAULT="${BASE_DIR_DEFAULT:-/home/omidard/panGEM_pipeline/ESKAPE}"
-OUT_DEFAULT="${OUT_DEFAULT:-/home/omidard/genome_qc_results.csv}"
+SCRIPT_DIR_QC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR_DEFAULT="${BASE_DIR_DEFAULT:-${SCRIPT_DIR_QC}/../data/target_genome_dir}"
+OUT_DEFAULT="${OUT_DEFAULT:-${SCRIPT_DIR_QC}/../data/qc/genome_qc_results.csv}"
 THREADS_DEFAULT="${THREADS_DEFAULT:-64}"
 
 MAMBA_ROOT="${MAMBA_ROOT:-$HOME/micromamba}"

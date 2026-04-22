@@ -5,9 +5,12 @@ import os
 import pandas as pd
 from media import urine_media, feces_media, serum_media
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "..", "data"))
+
 # Define model file paths
-upec_model_file = '/home/omidard/gapfilled_curated/1355101.3.json.json'
-non_upec_model_file = '/home/omidard/gapfilled_curated/1328859.4.json.json'
+upec_model_file = os.path.join(DATA_DIR, 'gapfilled_curated', '1355101.3.json.json')
+non_upec_model_file = os.path.join(DATA_DIR, 'gapfilled_curated', '1328859.4.json.json')
 
 # Load models
 upec_model = load_json_model(upec_model_file)
@@ -26,7 +29,7 @@ upec_fva_df = pd.DataFrame(upec_fva)
 non_upec_fva_df = pd.DataFrame(non_upec_fva)
 
 # Define output directory
-output_dir = '/home/omidard/eco_fva_results_upec'
+output_dir = os.path.join(DATA_DIR, 'eco_fva_results_upec')
 os.makedirs(output_dir, exist_ok=True)
 
 # Save models after applying urine media constraints

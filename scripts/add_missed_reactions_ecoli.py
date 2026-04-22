@@ -4,6 +4,9 @@ from multiprocessing import Pool
 import os
 import re
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
+
 def process_model(model_id, df, input_path, output_path):
     """
     Process a single metabolic model: Add/modify reactions and metabolites.
@@ -57,7 +60,7 @@ def correct_reaction(reaction_str):
 
 if __name__ == "__main__":
     # Load your dataframe
-    df = pd.read_csv("/home/omidard/merged_df.csv")
+    df = pd.read_csv(os.path.join(DATA_DIR, "merged_df.csv"))
 
     # Drop rows where 'KEGG_ID_y' or 'Curated_Reaction' is NaN
     df = df.dropna(subset=['KEGG_ID_y', 'Curated_Reaction'])
@@ -69,4 +72,4 @@ if __name__ == "__main__":
     df['KEGG_ID_y'] = df['KEGG_ID_y'].astype(str)
 
     # Process models in parallel
-    parallelize_models(df, "/home/omidard/gapfilled", "/home/omidard/gapfilled3")
+    parallelize_models(df, os.path.join(DATA_DIR, "gapfilled"), os.path.join(DATA_DIR, "gapfilled3"))

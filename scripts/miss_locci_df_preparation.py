@@ -70,11 +70,15 @@ df_tidy = pd.concat([df_without_hypothetical.reset_index(drop=True), df_info], a
 df_tidy = df_tidy.drop('Gene_Description', axis=1)
 df_tidy.to_csv("/Users/omidard/Desktop/tidy_missing_locci_ecoli.csv", index=False)
 """
+import os
 import pandas as pd
 import concurrent.futures
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
+
 # Specify the path to the CSV file
-file_path = "/home/omidard/ecoli_missing_locus_tags.csv"
+file_path = os.path.join(DATA_DIR, "ecoli_missing_locus_tags.csv")
 
 # Read the file into a DataFrame
 df = pd.read_csv(file_path)
@@ -85,7 +89,7 @@ df = df[~df['gene_product'].str.contains('transposase', case=False, na=False)]
 # Filtering operations
 df_hypothetical = df[df['gene_product'].str.contains('hypothetical protein', case=False, na=False)]
 df_without_hypothetical = df[~df['gene_product'].str.contains('hypothetical protein', case=False, na=False)]
-df_hypothetical.to_csv("/home/omidard/ecoli_hypothetical_proteins.csv", index=False)
+df_hypothetical.to_csv(os.path.join(DATA_DIR, "ecoli_hypothetical_proteins.csv"), index=False)
 
 def extract_info(s):
     parts = str(s).strip().split(']')
@@ -107,5 +111,5 @@ df_tidy = pd.concat([df_without_hypothetical.reset_index(drop=True), df_info], a
 
 # Drop the original 'gene_product' column (optional)
 df_tidy = df_tidy.drop('gene_product', axis=1)
-df_tidy.to_csv("/home/omidard/tidy_missing_locci_ecoli.csv", index=False)
+df_tidy.to_csv(os.path.join(DATA_DIR, "tidy_missing_locci_ecoli.csv"), index=False)
 

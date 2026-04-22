@@ -5,6 +5,9 @@ from cobra.flux_analysis import flux_variability_analysis
 from concurrent.futures import ProcessPoolExecutor, TimeoutError, as_completed
 from tqdm import tqdm
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "..", "data"))
+
 def urine_media(model, exchanges):
     """Modify the specified model's medium to simulate urine-based medium."""
     biomass_reaction_id = 'BIOMASS_Ec_iML1515_core_75p37M'
@@ -84,8 +87,8 @@ exchange_reactions = ['EX_duri_e','EX_dcyt_e','EX_ade_e','EX_adn_e','EX_cellb_e'
  'EX_mincyc_e','EX_fe3_e','EX_zn2_e','EX_iad_e','EX_4hphac_e','EX_6apa_e','EX_mobd_e','EX_tungs_e','EX_so4_e','EX_glc__D_e']
 
 # Directory where models are stored
-model_folder = '/home/omidard/gapfilled3'
+model_folder = os.path.join(DATA_DIR, 'gapfilled3')
 
 # Run the processing on all models
 final_df = process_models(model_folder, exchange_reactions, timeout=20)
-final_df.to_csv('/home/omidard/Urine_eco_fva.csv')
+final_df.to_csv(os.path.join(DATA_DIR, 'Urine_eco_fva.csv'))

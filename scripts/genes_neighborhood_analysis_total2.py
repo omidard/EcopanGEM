@@ -4,9 +4,12 @@ import multiprocessing as mp
 from Bio import SeqIO
 from tqdm import tqdm
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
+
 # Define file paths
-final_gene_neighborhood_path = '/home/omidard/neighbors/final_gene_neighborhood.csv'
-genomes_dir = '/home/omidard/prokka_genomes/'
+final_gene_neighborhood_path = os.path.join(DATA_DIR, 'neighbors', 'final_gene_neighborhood.csv')
+genomes_dir = os.path.join(DATA_DIR, 'prokka_genomes')
 
 # Load filtered DataFrame (final_gene_neighborhood) and drop rows with missing values
 filtered_df = pd.read_csv(final_gene_neighborhood_path)
@@ -98,6 +101,6 @@ def process_filtered_df(df):
 final_df = process_filtered_df(filtered_df)
 
 # Save the final DataFrame with all reactions
-final_output_path = '/home/omidard/neighbors/all_reactions_gene_neighborhood.csv'
+final_output_path = os.path.join(DATA_DIR, 'neighbors', 'all_reactions_gene_neighborhood.csv')
 final_df.to_csv(final_output_path, index=False)
 print(f'{final_output_path} saved')

@@ -6,6 +6,9 @@ from functools import partial
 from cobra.io import load_json_model
 from tqdm import tqdm
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
+
 # Step 1: Load and modify the header_to_allele dictionary
 def load_and_modify_dict(file_path):
     header_to_allele = pd.read_pickle(file_path)
@@ -15,7 +18,7 @@ def load_and_modify_dict(file_path):
         modified_dict[key] = new_value
     return modified_dict
 
-file_path = "/home/omidard/header_to_allele.pickle"
+file_path = os.path.join(DATA_DIR, "header_to_allele.pickle")
 
 # Load and modify the dictionary once
 locustags_genes_mapping = load_and_modify_dict(file_path)
@@ -39,8 +42,8 @@ def update_progress_bar(result, progress_bar, progress_counter, lock):
         progress_bar.update(1)
     return result
 
-model_folder = '/home/omidard/gapfilled3'
-gem_files_df = pd.read_csv('complete_gems.csv', index_col=0)
+model_folder = os.path.join(DATA_DIR, 'gapfilled3')
+gem_files_df = pd.read_csv(os.path.join(DATA_DIR, 'complete_gems.csv'), index_col=0)
 gem_files = gem_files_df['gems'].tolist()
 
 num_cores = min(cpu_count(), 64)
@@ -80,4 +83,4 @@ for gem_file, reaction_gprs in gem_reactions.items():
         df.at[gem_file, reaction_id] = str(gprs)  # Convert the list to a string
 
 # Step 5: Save the DataFrame to CSV
-df.to_csv('/home/omidard/ecoli_gprs.csv')
+df.to_csv(os.path.join(DATA_DIR, 'ecoli_gprs.csv'))

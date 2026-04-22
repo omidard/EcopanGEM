@@ -6,6 +6,9 @@ from cobra.io.json import save_json_model
 import multiprocessing
 import warnings
 warnings.filterwarnings("ignore")
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
 # Define the M9 medium function
 def m9(model):
     for reaction in model.reactions:
@@ -41,19 +44,19 @@ def m9(model):
     return model
 
 # Load the reference model (in MATLAB .mat format)
-ref_model = cobra.io.load_matlab_model('/home/omidard/ref_model_dir/marlbr2.mat')
+ref_model = cobra.io.load_matlab_model(os.path.join(DATA_DIR, 'ref_model_dir', 'marlbr2.mat'))
 """
 # List of target model file paths (in JSON format)
-target_model_dir = '/home/omidard/gapfilled'
+target_model_dir = os.path.join(DATA_DIR, 'gapfilled')
 target_model_files = [os.path.join(target_model_dir, filename) for filename in os.listdir(target_model_dir) if filename.endswith('.json')]
 """
 
 # List of target model file paths (in JSON format) in gapfilled
-target_model_dir = '/home/omidard/output_models_dir'
+target_model_dir = os.path.join(DATA_DIR, 'output_models_dir')
 target_model_files_gapfilled = [os.path.join(target_model_dir, filename) for filename in os.listdir(target_model_dir) if filename.endswith('.json')]
 
 # List of target model file paths (in JSON format) in gapfilled3
-target_model_dir_gapfilled3 = '/home/omidard/gapfilled3'
+target_model_dir_gapfilled3 = os.path.join(DATA_DIR, 'gapfilled3')
 target_model_files_gapfilled3 = [os.path.join(target_model_dir_gapfilled3, filename) for filename in os.listdir(target_model_dir_gapfilled3) if filename.endswith('.json')]
 
 # Filter out files that exist in gapfilled but not in gapfilled3
@@ -118,7 +121,7 @@ def process_target_model(target_model_path):
 
     # Save the modified target model (in JSON format)
     target_model_filename = os.path.basename(target_model_path)
-    save_json_model(target_model, f'/home/omidard/gapfilled3/{target_model_filename}')
+    save_json_model(target_model, os.path.join(DATA_DIR, 'gapfilled3', target_model_filename))
 
 # Use multiprocessing to parallelize the process
 num_cores = 64

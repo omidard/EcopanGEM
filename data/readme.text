@@ -1,4 +1,42 @@
 
-# Data related to this project are permanently deposited on Zenodo.
+# Data directory for EcopanGEM
 
-> * Core bundle (scripts + supporting data + panGEM): https://zenodo.org/records/17581962
+Data files are permanently deposited on Zenodo:
+https://zenodo.org/records/17581962
+
+## Setup
+
+Run `make fetch-data` from this directory to download all 15 files (~5.4 GB),
+unzip archives, and organize them into the layout expected by the scripts.
+
+## Zenodo file mapping
+
+| Zenodo filename                         | Local path after `make fetch-data`         |
+|-----------------------------------------|--------------------------------------------|
+| marlbr2.mat                             | ref_model_dir/marlbr2.mat                  |
+| Ecoli_GEMs_for_Complete_genomes.zip     | gapfilled_curated/*.json.json              |
+| locustags_genes_mapping.pkl             | neighbors/locustags_genes_mapping.pkl      |
+| biolog.csv                              | biolog.csv + biolog_panGEM.csv (copy)      |
+| universal_model.json                    | universal_model.json + iB21_1397.json (copy)|
+| header_to_allele.pickle.zip             | header_to_allele.pickle                    |
+| ecoli_gprs.csv.zip                      | ecoli_gprs.csv                             |
+| pangenome.csv.zip                       | pangenome.csv                              |
+| pangenome_s.zip                         | pangenome_s/                               |
+| all_reactions_gene_neighborhood.csv.zip | neighbors/all_reactions_gene_neighborhood.csv |
+| phylon_locustags_df.csv.zip             | phylon_locustags_df.csv                    |
+| curated_metadata_mash_filtered.pickle   | curated_metadata_mash_filtered.pickle      |
+| Unique_ModelSEED_Reaction_Aliases.txt   | Unique_ModelSEED_Reaction_Aliases.txt      |
+
+Note: Scripts.zip and Notebook_panGEM_panGPR.ipynb on Zenodo duplicate files
+already in this repository and are not downloaded by the Makefile.
+
+## Directories created by the pipeline
+
+The following are created by running the scripts (not downloaded from Zenodo):
+- output_models_dir/    (draft GEMs from pangem.py)
+- initial_models_dir/   (intermediate GEMs)
+- gapfilled/            (spontaneous-reaction GEMs)
+- gapfilled3/           (gap-filled GEMs)
+- present_absence_dir/  (orthology matrices)
+- fitness_results/      (essentiality analysis outputs)
+- qc/                   (genome QC results)

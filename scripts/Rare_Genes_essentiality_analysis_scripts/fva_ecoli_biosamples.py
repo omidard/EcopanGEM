@@ -7,10 +7,13 @@ from tqdm import tqdm
 import pathos.multiprocessing as mp
 from media import urine_media, feces_media, serum_media
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "..", "data"))
+
 def load_and_apply_media(args):
     model_id, media_function, media_name, output_dir = args
     try:
-        model_file = os.path.join('/home/omidard/gapfilled_curated', f"{model_id}.json.json")
+        model_file = os.path.join(DATA_DIR, 'gapfilled_curated', f"{model_id}.json.json")
         if not os.path.exists(model_file):
             raise FileNotFoundError(f"Model file {model_file} not found.")
         
@@ -41,11 +44,11 @@ def concatenate_results(results):
 
 def main():
     # Load model IDs
-    fitness_rare = pd.read_csv('/home/omidard/fitness_rare.csv', index_col=0, dtype=str)
+    fitness_rare = pd.read_csv(os.path.join(DATA_DIR, 'fitness_rare.csv'), index_col=0, dtype=str)
     model_ids = fitness_rare.index.tolist()
    
     # Define output directory
-    output_dir = '/home/omidard/eco_fva_results'
+    output_dir = os.path.join(DATA_DIR, 'eco_fva_results')
     os.makedirs(output_dir, exist_ok=True)
 
     # Process models for each media

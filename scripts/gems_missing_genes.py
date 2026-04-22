@@ -4,6 +4,9 @@ import cobra
 from Bio import SeqIO
 import pandas as pd
 from multiprocessing import Pool
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
 """
 def process_model(model_file):
     # Lists to store results
@@ -61,8 +64,8 @@ def process_model(model_file):
 
 
 
-genome_dir = "/home/omidard/prokka_genomes"
-model_dir = "/home/omidard/output_models_dir"
+genome_dir = os.path.join(DATA_DIR, "prokka_genomes")
+model_dir = os.path.join(DATA_DIR, "output_models_dir")
 
 # Initialize the pool with 64 workers
 with Pool(64) as p:
@@ -75,4 +78,4 @@ flat_results = [item for sublist in results for item in sublist]
 df = pd.DataFrame(flat_results, columns=["model_id", "missing_locus", "gene_product"])
 
 # Save DataFrame to CSV
-df.to_csv("/home/omidard/ecoli_missing_locus_tags.csv", index=False)
+df.to_csv(os.path.join(DATA_DIR, "ecoli_missing_locus_tags.csv"), index=False)

@@ -29,6 +29,7 @@ Edit BASE if needed.
 
 from __future__ import annotations
 import json
+import os
 import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
@@ -39,10 +40,13 @@ from multiprocessing import Pool, cpu_count
 from functools import partial
 from tqdm import tqdm
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
+
 # -------------------------
 # CONFIG
 # -------------------------
-BASE = Path("/home/omidard/ecoli_revision/pangenome_s")   # where cluster_to_locus_*.json + presence_absence_matrix_*.csv live
+BASE = Path(DATA_DIR) / "pangenome_s"   # where cluster_to_locus_*.json + presence_absence_matrix_*.csv live
 THRESHOLDS = [65, 70, 75, 80, 85, 90, 95]
 
 # Benchmark CAR thresholds (from your inflection method)

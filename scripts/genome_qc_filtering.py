@@ -33,9 +33,9 @@ ACTIONS:
 USAGE
   python filter_genomes.py \
     --qc /path/to/genome_qc_results.csv \
-    --base /home/omidard/panGEM_pipeline/ESKAPE/Enterococcus_faecium/annotations \
+    --base data/target_genome_dir \
     --apply \
-    --quarantine /home/omidard/panGEM_pipeline/ESKAPE/Enterococcus_faecium/low_quality
+    --quarantine data/target_genome_dir/quarantine_low_quality
 
 You can tweak thresholds; run with -h to see options.
 """

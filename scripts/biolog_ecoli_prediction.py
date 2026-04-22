@@ -4,6 +4,9 @@ import pandas as pd
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("ECOPANGEM_DATA", os.path.join(_SCRIPT_DIR, "..", "data"))
+
 # Function to apply modifications for M9 media
 def m9(model):
     """
@@ -111,7 +114,7 @@ def add_predictions_to_biolog(biolog_df, gem_folder):
     biolog_df['Prediction'] = biolog_df['Strain'].map(strain_to_prediction)
 
     # Save the updated Biolog dataframe
-    output_path = "/home/omidard/biolog_data_with_predictions_panGEM_paper.csv"
+    output_path = os.path.join(DATA_DIR, "biolog_data_with_predictions_panGEM_paper.csv")
     biolog_df.to_csv(output_path, index=False)
 
     # Summary output
@@ -120,9 +123,9 @@ def add_predictions_to_biolog(biolog_df, gem_folder):
     print(f"\nProcessing complete. Skipped {missing_count} models (not found), {error_count} models (loading errors).")
 
 # Path to the folder containing modified GEMs
-gem_folder = '/home/omidard/gapfilled_curated'
+gem_folder = os.path.join(DATA_DIR, 'gapfilled_curated')
 # Path to the Biolog dataframe
-biolog_df_path = "/home/omidard/biolog_panGEM.csv"
+biolog_df_path = os.path.join(DATA_DIR, "biolog_panGEM.csv")
 
 # Load Biolog dataframe
 biolog_df = pd.read_csv(biolog_df_path)
