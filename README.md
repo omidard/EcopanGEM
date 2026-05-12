@@ -25,7 +25,7 @@ No installation required — runs entirely in the browser.
 
 ---
 
-**Update:** The *E. coli* panGEM is now also available on the BiGG database:
+**Update:** The *E. coli* panGEM is now also available on the BiGGr database:
 https://biggr.org/collections/Ecoli_panGEMs/
 
 ---
