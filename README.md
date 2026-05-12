@@ -22,7 +22,7 @@ An interactive web application for exploring all **2,313 strain-specific genome-
 
 No installation required — runs entirely in the browser.
 
----
+
 ---
 
 **Update:** The *E. coli* panGEM is now also available on the BiGG database:
