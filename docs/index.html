@@ -115,108 +115,10 @@
   .btn-columns { border: 1px solid #ccc; background: white; font-size: 0.82rem; }
   .btn-columns:hover { background: #f0f0f0; }
   .btn-columns.active { background: var(--accent); border-color: var(--primary); }
-  /* ── Flux Balance Analysis panel ─────────────────────────────────────────── */
-  .fba-section { background: white; border-radius: 10px; padding: 1.3rem 1.4rem; margin-bottom: 1.3rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-top: 3px solid var(--primary); }
-  .fba-section h2 { font-size: 1.15rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.15rem; display:flex; align-items:center; gap:0.4rem; }
-  .fba-sub { font-size: 0.82rem; color: #777; margin-bottom: 1rem; }
-  /* mode bar */
-  .fba-modebar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
-  .fba-modetoggle { display: inline-flex; border: 1px solid #cfd8e3; border-radius: 8px; overflow: hidden; }
-  .fba-modetoggle button { border: none; background: #fff; padding: 0.4rem 0.9rem; font-size: 0.82rem; font-weight: 600; color: #555; cursor: pointer; }
-  .fba-modetoggle button.active { background: var(--primary); color: #fff; }
-  .fba-method { display: flex; gap: 0.7rem; align-items: center; }
-  .fba-method-lbl { font-size: 0.8rem; font-weight: 600; color: #555; }
-  .fba-method label { font-weight: 500; font-size: 0.82rem; display:flex; align-items:center; gap:4px; margin:0; cursor:pointer; }
-  .fba-modebar #fba-run { margin-left: auto; }
-  /* condition cards */
-  .fba-conditions { display: grid; grid-template-columns: 1fr; gap: 1rem; }
-  .fba-conditions.compare { grid-template-columns: 1fr 1fr; }
-  @media (max-width: 820px) { .fba-conditions.compare { grid-template-columns: 1fr; } }
-  .fba-cond { border: 1px solid #e5eaf1; border-radius: 10px; padding: 0.9rem 1rem; background: #fcfdff; }
-  .fba-cond-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.7rem; }
-  .fba-cond-badge { width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 0.78rem;
-    font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
-  .fba-cond[data-slot="b"] .fba-cond-badge { background: #c0392b; }
-  .fba-cond-head .title { font-weight: 700; font-size: 0.9rem; color: #333; }
-  .fba-field { margin-bottom: 0.75rem; }
-  .fba-field > label { font-size: 0.75rem; font-weight: 600; color: #444; display: block; margin-bottom: 3px; }
-  .fba-linkbtn { border: none; background: none; color: var(--primary); font-size: 0.72rem; cursor: pointer; padding: 0 2px; text-decoration: underline; }
-  .fba-linkbtn:disabled { color: #bbb; cursor: default; text-decoration: none; }
-  .fba-media-desc { font-size: 0.72rem; color: #999; margin-top: 3px; min-height: 1em; }
-  /* combobox */
-  .fba-combo { position: relative; }
-  .fba-combo-input { width: 100%; }
-  .fba-combo-menu { position: absolute; z-index: 50; left: 0; right: 0; top: 100%; background: #fff; border: 1px solid #cfd8e3;
-    border-radius: 0 0 8px 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); max-height: 320px; overflow-y: auto; display: none; }
-  .fba-combo-menu.show { display: block; }
-  .fba-combo-item { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #f2f5f8; }
-  .fba-combo-item:hover, .fba-combo-item.active { background: var(--accent); }
-  .fba-combo-item .nm { font-size: 0.82rem; font-weight: 600; color: #223; }
-  .fba-combo-item .id { font-family: monospace; font-size: 0.72rem; color: #7a8aa0; }
-  .fba-combo-item .meta { font-size: 0.7rem; color: #8a97a8; }
-  .fba-combo-empty { padding: 8px 10px; font-size: 0.78rem; color: #999; }
-  /* selected model card */
-  .fba-modelcard { margin-top: 6px; background: var(--accent); border-radius: 8px; padding: 0.55rem 0.7rem; font-size: 0.76rem; }
-  .fba-modelcard .mc-name { font-weight: 700; color: #1a3a5c; }
-  .fba-modelcard .mc-id { font-family: monospace; font-size: 0.72rem; color: #5a6b82; }
-  .fba-modelcard .mc-tags { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px; }
-  .fba-tag { background: #fff; border: 1px solid #cdddef; border-radius: 10px; padding: 1px 7px; font-size: 0.68rem; color: #375; }
-  /* media editor */
-  .fba-media-editor { margin-top: 6px; border: 1px solid #e5eaf1; border-radius: 8px; padding: 0.6rem; background: #fff; }
-  .fba-media-editor .me-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-  .fba-media-editor .me-head b { font-size: 0.74rem; color: #444; }
-  .fba-me-list { max-height: 220px; overflow-y: auto; }
-  table.fba-me { width: 100%; font-size: 0.74rem; border-collapse: collapse; }
-  table.fba-me td { padding: 2px 4px; border-bottom: 1px solid #f4f4f4; }
-  table.fba-me .me-cmpd { color: #333; }
-  table.fba-me .me-id { font-family: monospace; font-size: 0.68rem; color: #8090a5; }
-  table.fba-me input.me-rate { width: 74px; font-size: 0.72rem; padding: 1px 4px; text-align: right; }
-  .fba-me-rm { color: #c0392b; cursor: pointer; font-weight: 700; padding: 0 4px; }
-  .fba-me-add { position: relative; margin-top: 6px; }
-  .fba-me-add input { width: 100%; font-size: 0.75rem; }
-  /* knockout chips */
-  .fba-ko { position: relative; }
-  .fba-ko-menu { position: absolute; z-index: 50; left: 0; right: 0; top: 100%; background: #fff; border: 1px solid #cfd8e3;
-    border-radius: 0 0 8px 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); max-height: 260px; overflow-y: auto; display: none; }
-  .fba-ko-menu.show { display: block; }
-  .fba-ko-item { padding: 5px 10px; cursor: pointer; border-bottom: 1px solid #f2f5f8; font-size: 0.76rem; }
-  .fba-ko-item:hover { background: var(--accent); }
-  .fba-ko-item .id { font-family: monospace; font-weight: 600; }
-  .fba-ko-item .nm { color: #7a8aa0; }
-  .fba-ko-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
-  .fba-ko-chip { background: #fdecea; border: 1px solid #f5c6c0; color: #a5352a; border-radius: 12px; padding: 2px 8px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 5px; }
-  .fba-ko-chip .x { cursor: pointer; font-weight: 700; }
-  .fba-hint-inline { font-size: 0.7rem; color: #aaa; }
-  .fba-cmp-heads { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.85rem; margin-bottom: 0.6rem; }
-  @media (max-width: 800px) { .fba-cmp-heads { grid-template-columns: 1fr; } }
-  .fba-cmp-heads code { font-size: 0.78rem; }
-  .fba-status { font-size: 0.83rem; margin-top: 0.8rem; min-height: 1.1em; color: #666; }
-  .fba-status.busy { color: var(--primary); } .fba-status.ok { color: #1a7f4b; } .fba-status.err { color: #c0392b; font-weight:600; }
-  .fba-badge { background: var(--primary); color: white; font-size: 0.68rem; padding: 2px 7px; border-radius: 10px; vertical-align: middle; letter-spacing:0.5px; }
-  .fba-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 0.7rem; margin: 1rem 0; }
-  .fba-kpi { background: var(--accent); border-radius: 8px; padding: 0.7rem; text-align: center; }
-  .fba-kpi .v { font-size: 1.35rem; font-weight: 700; color: var(--primary); line-height:1.1; }
-  .fba-kpi .l { font-size: 0.68rem; color: #666; text-transform: uppercase; letter-spacing: 0.4px; margin-top:2px; }
-  .fba-charts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 1rem 0; }
-  @media (max-width: 900px) { .fba-charts { grid-template-columns: 1fr; } }
-  .fba-chart-card { background:#fff; border:1px solid #eef1f5; border-radius:8px; padding:0.7rem; }
-  .fba-chart-card h6 { font-size:0.8rem; font-weight:700; color:#444; margin-bottom:0.4rem; text-align:center; }
-  .fba-chart-box { position: relative; height: 240px; }
-  .fba-two { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
-  @media (max-width: 800px) { .fba-two { grid-template-columns: 1fr; } }
-  .fba-two h6 { font-size: 0.85rem; font-weight: 700; color: #444; margin-bottom: 0.4rem; }
-  .fba-tablewrap { max-height: 300px; overflow-y: auto; border: 1px solid #eef1f5; border-radius: 6px; }
-  table.fba-flux { width: 100%; font-size: 0.78rem; border-collapse: collapse; }
-  table.fba-flux thead th { position: sticky; top: 0; background: #f8f9fa; font-size: 0.68rem; text-transform: uppercase;
-    letter-spacing: 0.3px; padding: 5px 8px; text-align: left; border-bottom: 1px solid #e5e5e5; }
-  table.fba-flux td { padding: 4px 8px; border-bottom: 1px solid #f2f2f2; }
-  table.fba-flux td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
-  table.fba-flux code { font-size: 0.75rem; }
-  .fba-map-wrap { margin-top: 1.2rem; }
-  #fba-map { width: 100%; height: 560px; border: 1px solid #e5e8ec; border-radius: 8px; background: #fff; overflow: hidden; }
-  .fba-map-note { font-size: 0.72rem; color: #999; margin-top: 0.4rem; }
-  .fba-note { font-size: 0.85rem; color: #555; background: #fff8e1; border-radius: 6px; padding: 0.8rem; }
+  .analysis-cta { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    background: linear-gradient(135deg, #eef4fc 0%, #e2ecf9 100%); border: 1px solid #d3e1f2;
+    border-radius: 10px; padding: 0.9rem 1.2rem; margin-bottom: 1.3rem; font-size: 0.88rem; color: #33455c; }
+  .analysis-cta strong { color: #1a3a5c; }
 </style>
 </head>
 <body>
@@ -244,29 +146,12 @@
   </div>
   <div class="usage-note">Live usage since launch · updated hourly</div>
 
-  <!-- ── Flux Balance Analysis ──────────────────────────────────────────────── -->
-  <div class="fba-section" id="fba-section">
-    <h2>⚗️ Flux Balance Analysis <span class="fba-badge">runs in your browser</span></h2>
-    <p class="fba-sub">Pick a strain model and a growth medium, then solve FBA or parsimonious FBA (pFBA) — entirely client-side, no server. Get the predicted growth rate, nutrient uptake &amp; secreted end products, and a live Escher flux map. Media from Ardalani <em>et al.</em> (PLOS Pathogens, ppat.1013775).</p>
-    <div class="fba-modebar">
-      <div class="fba-modetoggle" id="fba-modetoggle">
-        <button type="button" data-mode="single" class="active">Single analysis</button>
-        <button type="button" data-mode="compare">Compare A vs B</button>
-      </div>
-      <div class="fba-method">
-        <span class="fba-method-lbl">Method:</span>
-        <label><input type="radio" name="fba-method" value="fba"> FBA</label>
-        <label><input type="radio" name="fba-method" value="pfba" checked> pFBA</label>
-      </div>
-      <button class="btn btn-primary btn-sm" id="fba-run" style="min-width:130px">▶ Run analysis</button>
+  <!-- Flux Analysis Studio call-to-action -->
+  <div class="analysis-cta">
+    <div>
+      <strong>⚗️ Flux Analysis Studio</strong> — run FBA, pFBA, FVA, dynamic FBA and multi-model comparisons on any of these GEMs, entirely in your browser.
     </div>
-
-    <!-- Condition cards (built by fba/fba_ui.js) -->
-    <div class="fba-conditions" id="fba-conditions"></div>
-
-    <div class="fba-status" id="fba-status"></div>
-
-    <div id="fba-results" style="display:none"></div>
+    <a class="btn btn-primary btn-sm" href="analysis.html">Open Flux Analysis Studio →</a>
   </div>
 
   <!-- Filters -->
@@ -317,6 +202,9 @@
       </button>
       <button class="btn btn-sm btn-outline-primary" id="btn-copy" onclick="copySelected()" disabled>
         Copy Filenames
+      </button>
+      <button class="btn btn-sm btn-outline-success" id="btn-analyze-sel" onclick="analyzeSelected()" disabled>
+        ⚗️ Analyze Selected (Multi-model)
       </button>
       <button class="btn btn-sm btn-outline-secondary" onclick="exportCSV()">
         Export Table (CSV)
@@ -373,8 +261,6 @@
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.datatables.net/select/1.7.0/js/dataTables.select.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="vendor/escher.min.js"></script>
 <script>
 const ZENODO_ZIP = 'https://zenodo.org/records/17581962/files/Ecoli_GEMs_for_Complete_genomes.zip?download=1';
 // Batch zips served from same origin (docs/gems/) — no CORS issues
@@ -553,6 +439,14 @@ function updateSelCount() {
   document.getElementById('sel-count').textContent = n;
   document.getElementById('btn-copy').disabled = n === 0;
   document.getElementById('btn-download-sel').disabled = n === 0;
+  document.getElementById('btn-analyze-sel').disabled = n < 2;
+}
+
+// Open selected GEMs in the Flux Analysis Studio multi-model tab
+function analyzeSelected() {
+  const files = getSelectedGemFiles().slice(0, 120);
+  if (files.length < 2) { alert('Select at least 2 GEMs to compare.'); return; }
+  window.location.href = 'analysis.html?tab=multi&models=' + files.map(encodeURIComponent).join(',');
 }
 
 // --- Download selected GEMs ---
@@ -896,8 +790,7 @@ async function openGemDetail(gemFile) {
           <span style="font-size:0.8rem;color:#888">${meta.strain || ''} ${meta.phylogroup ? '| Phylogroup ' + meta.phylogroup : ''} ${meta.MLST ? '| MLST ' + meta.MLST : ''}</span>
         </div>
         <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-primary" onclick="closeGemDetail(); if(window.fbaSetModel) window.fbaSetModel('a','${gemFile}')" title="Load into the FBA tool as Condition A">⚗️ Use as A</button>
-          <button class="btn btn-sm btn-outline-danger" onclick="closeGemDetail(); if(window.fbaSetModel) window.fbaSetModel('b','${gemFile}')" title="Load into the FBA tool as Condition B (comparison)">Use as B</button>
+          <a class="btn btn-sm btn-primary" href="analysis.html?tab=explore&model=${encodeURIComponent(gemFile)}&slot=a" title="Open this model in the Flux Analysis Studio">⚗️ Analyze fluxes</a>
           <button class="btn btn-sm btn-outline-secondary" onclick="closeGemDetail()">Close</button>
         </div>
       </div>
@@ -1063,6 +956,5 @@ function switchGemTab(el, tabId) {
   gemDetailTables.forEach(t => t.columns.adjust());
 }
 </script>
-<script type="module" src="fba/fba_ui.js"></script>
 </body>
 </html>

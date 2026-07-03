@@ -19,7 +19,13 @@ An interactive web application for exploring all **2,313 strain-specific genome-
 - **Model statistics** for every GEM: reaction count, metabolite count, gene count, exchange reactions, GPR coverage
 - **Click any GEM** to inspect its full content — reactions (with chemical formula and GPR rules), metabolites, and genes — in searchable tables
 - **Download selected GEMs** directly from the browser, or export the metadata table as CSV
-- **Flux Balance Analysis in the browser** — pick any strain model and a growth medium, then run **FBA or parsimonious FBA (pFBA)** with no server: the linear program is solved client-side with a WebAssembly build of GLPK. Returns the predicted growth rate, nutrient uptake and secreted end-product fluxes, a growth-across-media comparison, and a live **Escher** flux map of central metabolism. Media presets (M9 ± O₂, and the HMDB-derived **Feces / Urine / Serum** formulations from S3–S5 Tables of Ardalani *et al.*, PLOS Pathogens `ppat.1013775`). The solver reproduces COBRApy growth and pFBA flux sums to 6 significant figures.
+- **Flux Analysis Studio** ([`analysis.html`](https://omidard.github.io/EcopanGEM/analysis.html)) — a companion page that runs metabolic analyses on any GEM entirely **client-side** (the LP is solved in-browser with a WebAssembly build of GLPK; nothing is sent to a server):
+  - **Explore & Compare** — FBA / parsimonious FBA, with editable media (per-compound uptake rates, add/remove compounds), reaction knockouts, a live **Escher** flux map, and an A-vs-B comparison mode.
+  - **Flux Variability Analysis (FVA)** — min/max flux of every exchange at a chosen fraction of optimal growth, as an interactive interval plot.
+  - **Dynamic FBA** — batch-culture time-course (biomass, substrate depletion, product accumulation) with Michaelis–Menten uptake.
+  - **Multi-model analytics** — run FBA across many strains, then explore growth by phylogroup, an interactive flux **scatter**, a **PCA** of exchange-flux profiles, and a heatmap — all clickable (Plotly).
+
+  Media presets: M9 ± O₂ and the HMDB-derived **Feces / Urine / Serum** formulations from S3–S5 Tables of Ardalani *et al.* (PLOS Pathogens `ppat.1013775`). All growth rates, pFBA flux sums, knockouts and FVA ranges reproduce COBRApy to full precision.
 
 No installation required — runs entirely in the browser.
 

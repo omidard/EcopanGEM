@@ -537,9 +537,18 @@ async function init() {
     slot = (slot === 'b') ? 'b' : 'a';
     if (slot === 'b') setMode('compare');
     selectModel(S.conditions[slot], gemFile);
-    $('fba-section').scrollIntoView({ behavior: 'smooth' });
+    const anchor = $('panel-explore') || $('fba-conditions');
+    if (anchor) anchor.scrollIntoView({ behavior: 'smooth' });
   };
   window.fbaSelectModel = (gemFile) => window.fbaSetModel('a', gemFile); // back-compat
+
+  // URL handoff from the browser page: analysis.html?model=<gem>&slot=a
+  const q = new URLSearchParams(location.search);
+  if (q.get('model')) {
+    const slot = q.get('slot') === 'b' ? 'b' : 'a';
+    if (slot === 'b') setMode('compare');
+    selectModel(S.conditions[slot], q.get('model'));
+  }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();

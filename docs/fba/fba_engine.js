@@ -92,6 +92,63 @@ export async function runPFBA(model, mediaBounds, fbaResult, opts) {
   };
 }
 
+// Flux Variability Analysis: min & max flux for each reaction in reactionIds,
+// subject to biomass >= fraction * optimum. opts: {fraction, knockouts, onProgress}.
+export async function runFVA(model, mediaBounds, reactionIds, opts = {}) {
+  const glpk = await getGLPK();
+  const fraction = opts.fraction != null ? opts.fraction : 1.0;
+  const lp = buildLP(glpk, model, mediaBounds, opts.knockouts);
+  const objId = (lp.objective.vars[0] || {}).name;
+  const fba = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result;
+  if (fba.status !== glpk.GLP_OPT || !(fba.z > 1e-9)) return { optimal: false, z: fba.z || 0, ranges: {} };
+  // fix biomass >= fraction * optimum
+  for (const b of lp.bounds) if (b.name === objId) { b.lb = fraction * fba.z; b.ub = Math.max(b.ub, fba.z); b.type = glpk.GLP_DB; }
+  const ranges = {};
+  let done = 0;
+  for (const rid of reactionIds) {
+    lp.objective = { direction: glpk.GLP_MIN, name: 'fva', vars: [{ name: rid, coef: 1 }] };
+    const mn = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result.z;
+    lp.objective.direction = glpk.GLP_MAX;
+    const mx = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result.z;
+    ranges[rid] = { min: mn, max: mx };
+    if (opts.onProgress) opts.onProgress(++done, reactionIds.length);
+  }
+  return { optimal: true, z: fba.z, fraction, ranges };
+}
+
+// Dynamic (batch) FBA by static optimization. Substrate uptake follows
+// Michaelis-Menten; biomass and tracked metabolite concentrations integrate by
+// forward Euler. opts: {substrateEx, substrate0, biomass0, vmax, km, dt, tmax, trackEx, knockouts, onProgress}.
+export async function runDFBA(model, mediaBounds, opts = {}) {
+  const o = Object.assign({ substrateEx: 'EX_glc__D_e', substrate0: 10, biomass0: 0.01,
+    vmax: 10, km: 0.5, dt: 0.1, tmax: 15, trackEx: [] }, opts);
+  const media = { ...mediaBounds };
+  const conc = { [o.substrateEx]: o.substrate0 };
+  for (const e of o.trackEx) if (!(e in conc)) conc[e] = 0;
+  const series = { t: [], biomass: [], conc: {}, substrateEx: o.substrateEx };
+  for (const e of Object.keys(conc)) series.conc[e] = [];
+  let X = o.biomass0, t = 0;
+  const nsteps = Math.ceil(o.tmax / o.dt);
+  for (let i = 0; i <= nsteps; i++) {
+    const S = Math.max(0, conc[o.substrateEx]);
+    let vUp = o.vmax * S / (o.km + S);
+    if (X > 0 && o.dt > 0) vUp = Math.min(vUp, S / (X * o.dt)); // never consume more than present
+    media[o.substrateEx] = -vUp;
+    const fba = await runFBA(model, media, { knockouts: o.knockouts });
+    const mu = fba.optimal ? fba.growth : 0;
+    series.t.push(+t.toFixed(4)); series.biomass.push(X);
+    for (const e of Object.keys(conc)) series.conc[e].push(Math.max(0, conc[e]));
+    for (const e of Object.keys(conc)) {
+      const flux = fba.fluxes[e] || 0;
+      conc[e] += flux * X * o.dt; if (conc[e] < 0) conc[e] = 0;
+    }
+    X += mu * X * o.dt; t += o.dt;
+    if (opts.onProgress) opts.onProgress(i, nsteps);
+    if (mu <= 1e-9 && S <= 1e-9) break;
+  }
+  return series;
+}
+
 // All exchange reactions in a model: {id, name, met, defaultLb, defaultUb}. For the media editor.
 export function listExchanges(model) {
   return model.reactions
