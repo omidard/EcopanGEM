@@ -1,6 +1,6 @@
 // EcopanGEM Flux Analysis Studio — FVA, Dynamic FBA & Multi-model tabs.
 // (The Explore/Compare tab is handled by fba_ui.js.) All client-side.
-import { runFBA, runPFBA, runFVA, runDFBA, exchangeReport, listExchanges } from './fba_engine.js';
+import { runFBA, runPFBA, runFVA, runDFBA, productionEnvelope, phasePlane, essentialityScan, exchangeReport, listExchanges } from './fba_engine.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -67,15 +67,51 @@ function prog(wrapId, barId, frac) { const w = $(wrapId); w.style.display = frac
 function saveCSV(csv, base) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = base + '.csv'; a.click(); }
 const bio = (id) => id.replace(/^EX_/, '').replace(/_e$/, '');
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-function initTabs() {
-  document.querySelectorAll('#studio-tabs .studio-tab').forEach(btn => btn.addEventListener('click', () => {
-    const tab = btn.dataset.tab;
-    document.querySelectorAll('#studio-tabs .studio-tab').forEach(b => b.classList.toggle('active', b === btn));
-    document.querySelectorAll('.studio-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
-    // resize any Plotly plots in the now-visible panel
-    setTimeout(() => document.querySelectorAll('#panel-' + tab + ' .js-plotly-plot').forEach(p => window.Plotly && window.Plotly.Plots.resize(p)), 30);
-  }));
+// ── Sidebar navigation ─────────────────────────────────────────────────────────
+const TAB_META = {
+  home: ['Flux Analysis Studio', 'A constraint-based modelling workbench for 2,313 E. coli strain GEMs — everything runs in your browser.'],
+  explore: ['Explore & Compare', 'FBA / pFBA with editable media, knockouts and a live Escher flux map.'],
+  dfba: ['Dynamic FBA', 'Batch-culture time course from Michaelis–Menten uptake kinetics.'],
+  fva: ['Flux Variability Analysis', 'The min/max flux each reaction can carry at near-optimal growth.'],
+  envelope: ['Production Envelope', 'The biomass-vs-product trade-off frontier for strain design.'],
+  phaseplane: ['Phenotype Phase Plane', 'The growth surface over two uptake capacities.'],
+  essential: ['Essentiality Screen', 'Single-reaction knockout scan across the network.'],
+  multi: ['Multi-model analytics', 'FBA across many strains — scatter, PCA and heatmaps.'],
+  cohort: ['Cohort comparison', 'Test which metabolic traits differ between metadata-defined groups.'],
+};
+function switchTab(tab) {
+  if (!TAB_META[tab]) tab = 'home';
+  document.querySelectorAll('#studio-nav .nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.studio-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+  const [t, s] = TAB_META[tab]; $('page-title').textContent = t; $('page-sub').innerHTML = s;
+  document.getElementById('sidebar').classList.remove('open');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(() => document.querySelectorAll('#panel-' + tab + ' .js-plotly-plot').forEach(p => window.Plotly && window.Plotly.Plots.resize(p)), 40);
+}
+function initNav() {
+  document.querySelectorAll('#studio-nav .nav-item, #tool-gallery .tool-card').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  const mt = $('menu-toggle'); if (mt) mt.addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+}
+
+// ── Plot downloads ──────────────────────────────────────────────────────────────
+function wireDownloads() {
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.viz-dl'); if (!btn) return;
+    const el = document.getElementById(btn.dataset.plot); if (!el) return;
+    const type = btn.dataset.type || 'plotly';
+    if (type === 'plotly' && window.Plotly) window.Plotly.downloadImage(el, { format: 'png', scale: 2, filename: btn.dataset.plot, width: el.clientWidth || 900, height: Math.max(360, el.clientHeight || 460) });
+    else if (type === 'chartjs') { const a = document.createElement('a'); a.href = el.toDataURL('image/png'); a.download = btn.dataset.plot + '.png'; a.click(); }
+    else if (type === 'escher') { const svg = el.querySelector('svg'); if (svg) { const a = document.createElement('a'); a.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg)); a.download = btn.dataset.plot + '.svg'; a.click(); } }
+  });
+}
+// add a ⬇ button to every static Plotly card that doesn't already have one
+function decorateStaticPlots() {
+  document.querySelectorAll('.fba-chart-card').forEach(card => {
+    const h = card.querySelector('h6'); if (!h || h.querySelector('.viz-dl')) return;
+    const pd = card.querySelector('.plot, .plot-tall'); if (!pd || !pd.id) return;
+    const b = document.createElement('button'); b.className = 'viz-dl'; b.dataset.plot = pd.id; b.dataset.type = 'plotly';
+    b.textContent = '⬇'; b.style.cssText = 'float:right;margin-top:-1px'; h.appendChild(b);
+  });
 }
 
 // ── FVA tab ───────────────────────────────────────────────────────────────────
@@ -214,7 +250,7 @@ function initMulti() {
   $('mm-clear').addEventListener('click', () => { mm.selected = []; renderChips(); });
   $('mm-run').addEventListener('click', runMulti);
 }
-function addModel(gemFile) { if (!mm.selected.includes(gemFile) && window.gemBatchMap[gemFile]) mm.selected.push(gemFile); renderChips(); }
+function addModel(gemFile) { if (!mm.selected.includes(gemFile) && window.gemBatchMap && window.gemBatchMap[gemFile]) mm.selected.push(gemFile); renderChips(); }
 function quickAdd(kind) {
   const md = window.gemMetadata || [];
   if (kind === 'perphylo') {
@@ -580,13 +616,142 @@ function showCohortDetail(exId) {
 let _cohortDiff = null;
 function cohortDiffLookup(id) { return (_cohortDiff || []).find(d => d.id === id); }
 
+// ── single-model picker helper (Envelope / PhasePlane / Essentiality) ──────────
+function wireModelPicker(inputId, menuId, cardId, state, onLoad) {
+  makeCombo($(inputId), $(menuId), async (gemFile) => {
+    $(inputId).value = '';
+    const mc = $(cardId); mc.style.display = 'block'; mc.innerHTML = '<span class="fba-hint-inline">Loading…</span>';
+    try { const model = await loadModel(gemFile); state.model = model; state.file = gemFile; mc.innerHTML = modelCardHTML(gemFile, model); if (onLoad) onLoad(model); }
+    catch (e) { mc.innerHTML = `<span style="color:#c0392b">${esc(e.message)}</span>`; }
+  });
+}
+
+// ── Production Envelope ─────────────────────────────────────────────────────────
+const envState = { model: null, file: null };
+function initEnvelope() {
+  fillMedia($('env-media'), null);
+  wireModelPicker('env-model-input', 'env-model-menu', 'env-modelcard', envState, (model) => {
+    const exs = listExchanges(model), has = id => exs.some(e => e.id === id);
+    const pri = ['EX_ac_e', 'EX_etoh_e', 'EX_lac__D_e', 'EX_succ_e', 'EX_for_e', 'EX_ala__L_e', 'EX_pyr_e', 'EX_akg_e', 'EX_co2_e', 'EX_h2_e'].filter(has);
+    const rest = exs.map(e => e.id).filter(id => !pri.includes(id) && id !== 'EX_h2o_e' && id !== 'EX_h_e');
+    $('env-product').innerHTML = pri.concat(rest).map(id => `<option value="${id}">${bio(id)} (${id})</option>`).join('');
+    if (has('EX_ac_e')) $('env-product').value = 'EX_ac_e';
+  });
+  $('env-run').addEventListener('click', runEnvelope);
+}
+async function runEnvelope() {
+  if (!envState.model) return setStatus('env-status', 'Choose a model first.', 'err');
+  const media = PRESETS[$('env-media').value].bounds, product = $('env-product').value;
+  $('env-run').disabled = true; $('env-results').style.display = 'none';
+  setStatus('env-status', 'Computing envelope…', 'busy'); prog('env-prog', 'env-prog-bar', 0);
+  try {
+    const t0 = performance.now();
+    const res = await productionEnvelope(envState.model, media, product, { points: 24, onProgress: (d, t) => prog('env-prog', 'env-prog-bar', d / t) });
+    prog('env-prog', 'env-prog-bar', null);
+    $('env-results').style.display = 'block';
+    const x = res.points.map(p => p.product), ymax = res.points.map(p => p.growthMax), ymin = res.points.map(p => p.growthMin);
+    const peak = res.points.reduce((a, b) => b.growthMax > a.growthMax ? b : a, res.points[0]);
+    window.Plotly.newPlot('env-plot', [
+      { x, y: ymin, mode: 'lines', name: 'min biomass', line: { color: '#c0392b', width: 2 } },
+      { x, y: ymax, mode: 'lines', name: 'max biomass', line: { color: '#2c6fbb', width: 3 }, fill: 'tonexty', fillcolor: 'rgba(44,111,187,0.12)' },
+    ], {
+      margin: { l: 55, r: 20, t: 30, b: 50 }, height: 460,
+      xaxis: { title: `${bio(product)} production flux (mmol·gDW⁻¹·h⁻¹)` }, yaxis: { title: 'Growth rate (h⁻¹)', rangemode: 'tozero' },
+      legend: { orientation: 'h', y: 1.12 }, font: { size: 11 },
+      annotations: [{ x: peak.product, y: peak.growthMax, text: `peak ${fmt(peak.growthMax, 3)} @ ${fmt(peak.product, 1)}`, showarrow: true, arrowhead: 2, ax: 0, ay: -30, font: { size: 10 } }],
+    }, { responsive: true, displaylogo: false });
+    $('env-note').textContent = `The shaded region is the feasible biomass range at each production level. Max ${bio(product)} production is ${fmt(res.prodMax, 2)} mmol·gDW⁻¹·h⁻¹ (at zero growth).`;
+    setStatus('env-status', `Done in ${((performance.now() - t0) / 1000).toFixed(1)} s.`, 'ok');
+  } catch (e) { setStatus('env-status', 'Error: ' + e.message, 'err'); console.error(e); prog('env-prog', 'env-prog-bar', null); }
+  finally { $('env-run').disabled = false; }
+}
+
+// ── Phenotype Phase Plane ───────────────────────────────────────────────────────
+const ppState = { model: null, file: null };
+function initPhasePlane() {
+  fillMedia($('pp-media'), null);
+  wireModelPicker('pp-model-input', 'pp-model-menu', 'pp-modelcard', ppState, (model) => {
+    const exs = listExchanges(model), opts = exs.map(e => `<option value="${e.id}">${bio(e.id)} (${e.id})</option>`).join('');
+    $('pp-x').innerHTML = opts; $('pp-y').innerHTML = opts;
+    if (exs.some(e => e.id === 'EX_glc__D_e')) $('pp-x').value = 'EX_glc__D_e';
+    if (exs.some(e => e.id === 'EX_o2_e')) $('pp-y').value = 'EX_o2_e';
+  });
+  $('pp-run').addEventListener('click', runPP);
+}
+async function runPP() {
+  if (!ppState.model) return setStatus('pp-status', 'Choose a model first.', 'err');
+  const media = PRESETS[$('pp-media').value].bounds, xId = $('pp-x').value, yId = $('pp-y').value, n = Math.max(6, Math.min(40, +$('pp-n').value || 20));
+  if (xId === yId) return setStatus('pp-status', 'Choose two different axes.', 'err');
+  $('pp-run').disabled = true; $('pp-results').style.display = 'none';
+  setStatus('pp-status', `Solving ${n}×${n} grid…`, 'busy'); prog('pp-prog', 'pp-prog-bar', 0);
+  try {
+    const t0 = performance.now();
+    const res = await phasePlane(ppState.model, media, xId, yId, { n, xMax: 20, yMax: 20, onProgress: (d, t) => prog('pp-prog', 'pp-prog-bar', d / t) });
+    prog('pp-prog', 'pp-prog-bar', null);
+    $('pp-results').style.display = 'block';
+    window.Plotly.newPlot('pp-plot', [{ type: 'contour', z: res.Z, x: res.xs, y: res.ys, colorscale: 'Viridis', contours: { coloring: 'heatmap' }, colorbar: { title: 'growth h⁻¹', thickness: 12 }, hovertemplate: `${bio(xId)} %{x:.1f}<br>${bio(yId)} %{y:.1f}<br>growth %{z:.3f}<extra></extra>` }],
+      { margin: { l: 60, r: 10, t: 15, b: 55 }, height: 480, xaxis: { title: `${bio(xId)} uptake capacity` }, yaxis: { title: `${bio(yId)} uptake capacity` }, font: { size: 11 } }, { responsive: true, displaylogo: false });
+    setStatus('pp-status', `Done — ${n * n} solves in ${((performance.now() - t0) / 1000).toFixed(1)} s.`, 'ok');
+  } catch (e) { setStatus('pp-status', 'Error: ' + e.message, 'err'); console.error(e); prog('pp-prog', 'pp-prog-bar', null); }
+  finally { $('pp-run').disabled = false; }
+}
+
+// ── Essentiality Screen ─────────────────────────────────────────────────────────
+const essState = { model: null, file: null };
+function initEssential() {
+  fillMedia($('ess-media'), null);
+  wireModelPicker('ess-model-input', 'ess-model-menu', 'ess-modelcard', essState);
+  $('ess-run').addEventListener('click', runEss);
+}
+function essClass(ratio) { return ratio < 0.01 ? 'Essential' : ratio < 0.5 ? 'Severe' : ratio < 0.95 ? 'Mild' : 'Neutral'; }
+const ESS_COLORS = { Essential: '#c0392b', Severe: '#e08a1e', Mild: '#5b8ff9', Neutral: '#cfd8e3' };
+async function runEss() {
+  if (!essState.model) return setStatus('ess-status', 'Choose a model first.', 'err');
+  const media = PRESETS[$('ess-media').value].bounds, scope = $('ess-scope').value;
+  const all = essState.model.reactions.map(r => r.id);
+  const ids = scope === 'exchange' ? all.filter(id => id.startsWith('EX_')) : scope === 'metabolic' ? all.filter(id => !id.startsWith('EX_')) : all;
+  $('ess-run').disabled = true; $('ess-results').style.display = 'none';
+  setStatus('ess-status', `Knocking out ${ids.length} reactions… (this can take a minute)`, 'busy'); prog('ess-prog', 'ess-prog-bar', 0);
+  try {
+    const t0 = performance.now();
+    const res = await essentialityScan(essState.model, media, ids, { onProgress: (d, t) => { if (d % 20 === 0 || d === t) { prog('ess-prog', 'ess-prog-bar', d / t); setStatus('ess-status', `Tested ${d}/${t}…`, 'busy'); } } });
+    prog('ess-prog', 'ess-prog-bar', null);
+    renderEss(res, ids.length);
+    setStatus('ess-status', `Done — ${ids.length} knockouts in ${((performance.now() - t0) / 1000).toFixed(1)} s. WT growth ${fmt(res.wtGrowth)} h⁻¹.`, 'ok');
+  } catch (e) { setStatus('ess-status', 'Error: ' + e.message, 'err'); console.error(e); prog('ess-prog', 'ess-prog-bar', null); }
+  finally { $('ess-run').disabled = false; }
+}
+function renderEss(res, n) {
+  const rows = res.results.map(r => ({ ...r, cls: essClass(r.ratio) })).sort((a, b) => a.ratio - b.ratio);
+  const counts = { Essential: 0, Severe: 0, Mild: 0, Neutral: 0 };
+  rows.forEach(r => counts[r.cls]++);
+  $('ess-results').style.display = 'block';
+  $('ess-kpis').innerHTML =
+    `<div class="fba-kpi"><div class="v" style="color:#c0392b">${counts.Essential}</div><div class="l">Essential (&lt;1%)</div></div>
+     <div class="fba-kpi"><div class="v" style="color:#e08a1e">${counts.Severe}</div><div class="l">Severe (&lt;50%)</div></div>
+     <div class="fba-kpi"><div class="v" style="color:#5b8ff9">${counts.Mild}</div><div class="l">Mild (&lt;95%)</div></div>
+     <div class="fba-kpi"><div class="v">${counts.Neutral}</div><div class="l">Dispensable</div></div>`;
+  window.Plotly.newPlot('ess-plot-pie', [{ type: 'pie', labels: Object.keys(counts), values: Object.values(counts), marker: { colors: Object.keys(counts).map(k => ESS_COLORS[k]) }, textinfo: 'label+percent', hole: 0.45 }],
+    { margin: { l: 10, r: 10, t: 10, b: 10 }, height: 320, font: { size: 11 }, showlegend: false }, { responsive: true, displaylogo: false });
+  window.Plotly.newPlot('ess-plot-hist', [{ type: 'histogram', x: rows.map(r => r.ratio), nbinsx: 25, marker: { color: '#2c6fbb' } }],
+    { margin: { l: 45, r: 10, t: 10, b: 40 }, height: 320, xaxis: { title: 'Knockout growth / WT growth' }, yaxis: { title: 'reactions' }, font: { size: 11 } }, { responsive: true, displaylogo: false });
+  const disp = rows.filter(r => r.ratio < 0.95).slice(0, 60);
+  $('ess-table').innerHTML = `<div class="fba-hint-inline" style="margin-bottom:4px">Reactions with a growth impact (ratio &lt; 0.95), most severe first — top ${disp.length}:</div>
+    <div class="fba-tablewrap" style="max-height:320px"><table class="fba-flux"><thead><tr><th>Reaction</th><th>Name</th><th>Subsystem</th><th>KO growth</th><th>Ratio</th><th>Class</th></tr></thead>
+    <tbody>${disp.map(r => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.name)}</td><td>${esc(r.subsystem)}</td><td class="num">${fmt(r.growth)}</td><td class="num" style="color:${ESS_COLORS[r.cls]}">${fmt(r.ratio, 3)}</td><td>${r.cls}</td></tr>`).join('')}</tbody></table></div>`;
+  $('ess-csv').onclick = () => { let c = 'reaction_id,name,subsystem,ko_growth,ratio,class\n'; rows.forEach(r => c += `${r.id},"${(r.name || '').replace(/"/g, '""')}","${(r.subsystem || '').replace(/"/g, '""')}",${r.growth},${r.ratio},${r.cls}\n`); saveCSV(c, `essentiality_${essState.file.replace(/\.json.*/, '')}_${$('ess-media').value}`); };
+}
+
 // ── init ──────────────────────────────────────────────────────────────────────
 async function init() {
   await presets();
-  initTabs(); initFVA(); initDFBA(); initMulti(); initCohort();
+  initNav(); initFVA(); initDFBA(); initMulti(); initCohort(); initEnvelope(); initPhasePlane(); initEssential();
+  wireDownloads(); decorateStaticPlots();
   // URL param handoff: ?tab=&model=&slot=&models=
   const q = new URLSearchParams(location.search);
-  if (q.get('tab')) { const btn = document.querySelector(`#studio-tabs .studio-tab[data-tab="${q.get('tab')}"]`); if (btn) btn.click(); }
-  if (q.get('models')) { q.get('models').split(',').filter(Boolean).forEach(addModel); document.querySelector('#studio-tabs .studio-tab[data-tab="multi"]').click(); }
+  if (q.get('models')) {
+    const apply = () => { q.get('models').split(',').filter(Boolean).forEach(addModel); switchTab('multi'); };
+    if (window.gemBatchMap) apply(); else window.addEventListener('gem-data-ready', apply, { once: true });
+  } else if (q.get('tab')) switchTab(q.get('tab'));
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

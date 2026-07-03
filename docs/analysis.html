@@ -9,25 +9,58 @@
 </head>
 <body>
 
-<div class="hero">
-  <div class="container">
-    <a class="back" href="index.html">← EcopanGEM Browser</a>
-    <h1>⚗️ Flux Analysis Studio</h1>
-    <p>In-browser flux balance analysis for 2,313 <em>E. coli</em> strain GEMs — FBA, pFBA, FVA, dynamic FBA &amp; multi-model comparison. Nothing leaves your machine.</p>
-  </div>
-</div>
+<div class="studio-layout">
+  <aside class="sidebar" id="sidebar">
+    <a class="sidebar-brand" href="index.html">
+      <span class="brand-mark">⚗️</span>
+      <span class="brand-txt"><b>Flux Studio</b><small>← EcopanGEM Browser</small></span>
+    </a>
+    <nav class="sidebar-nav" id="studio-nav">
+      <button class="nav-item active" data-tab="home"><span class="ni">🏠</span> Home</button>
+      <div class="nav-group">Simulate</div>
+      <button class="nav-item" data-tab="explore"><span class="ni">🧪</span> Explore &amp; Compare</button>
+      <button class="nav-item" data-tab="dfba"><span class="ni">⏱️</span> Dynamic FBA</button>
+      <div class="nav-group">Explore the solution space</div>
+      <button class="nav-item" data-tab="fva"><span class="ni">📊</span> Flux Variability</button>
+      <button class="nav-item" data-tab="envelope"><span class="ni">📈</span> Production Envelope</button>
+      <button class="nav-item" data-tab="phaseplane"><span class="ni">🗺️</span> Phenotype Phase Plane</button>
+      <div class="nav-group">Screen &amp; design</div>
+      <button class="nav-item" data-tab="essential"><span class="ni">🎯</span> Essentiality Screen</button>
+      <div class="nav-group">Populations</div>
+      <button class="nav-item" data-tab="multi"><span class="ni">🌐</span> Multi-model</button>
+      <button class="nav-item" data-tab="cohort"><span class="ni">⚖️</span> Cohort comparison</button>
+    </nav>
+    <div class="sidebar-foot">100% in-browser<br>glpk.js · Escher · Plotly</div>
+  </aside>
 
-<div class="container">
-  <div class="studio-tabs" id="studio-tabs">
-    <button class="studio-tab active" data-tab="explore">Explore &amp; Compare</button>
-    <button class="studio-tab" data-tab="fva">Flux Variability (FVA)</button>
-    <button class="studio-tab" data-tab="dfba">Dynamic FBA</button>
-    <button class="studio-tab" data-tab="multi">Multi-model analytics</button>
-    <button class="studio-tab" data-tab="cohort">Cohort comparison</button>
+  <main class="studio-main">
+    <div class="topbar">
+      <button class="menu-toggle" id="menu-toggle" aria-label="menu">☰</button>
+      <div><h1 id="page-title">Flux Analysis Studio</h1>
+      <p id="page-sub">A constraint-based modelling workbench for 2,313 <em>E. coli</em> strain GEMs — everything runs in your browser.</p></div>
+    </div>
+
+  <!-- ── HOME / tool gallery ───────────────────────────────────────────────── -->
+  <div class="studio-panel active" id="panel-home">
+    <div class="home-hero">
+      <h2>Pick a tool. Everything runs locally — no server, no waiting queue.</h2>
+      <p>Genome-scale metabolic models for every strain, solved live in your browser with a WebAssembly LP solver. Choose an analysis below.</p>
+    </div>
+    <div class="tool-gallery" id="tool-gallery">
+      <button class="tool-card" data-tab="explore"><span class="tc-ic">🧪</span><b>Explore &amp; Compare</b><span>FBA / pFBA with editable media, knockouts &amp; a live Escher flux map. Compare two conditions side by side.</span></button>
+      <button class="tool-card" data-tab="dfba"><span class="tc-ic">⏱️</span><b>Dynamic FBA</b><span>Batch-culture time course — biomass growth, substrate depletion &amp; product accumulation.</span></button>
+      <button class="tool-card" data-tab="fva"><span class="tc-ic">📊</span><b>Flux Variability</b><span>Min/max flux of every exchange at a chosen fraction of optimal growth.</span></button>
+      <button class="tool-card" data-tab="envelope"><span class="tc-ic">📈</span><b>Production Envelope</b><span>The growth-vs-product trade-off for any secreted metabolite — the bioengineer's map.</span></button>
+      <button class="tool-card" data-tab="phaseplane"><span class="tc-ic">🗺️</span><b>Phenotype Phase Plane</b><span>Growth surface over two uptake rates — the classic 2-D phenotype landscape.</span></button>
+      <button class="tool-card" data-tab="essential"><span class="tc-ic">🎯</span><b>Essentiality Screen</b><span>Single-reaction knockout scan — find the essential, redundant &amp; dispensable reactions.</span></button>
+      <button class="tool-card" data-tab="multi"><span class="tc-ic">🌐</span><b>Multi-model analytics</b><span>Run FBA across many strains — growth, flux scatter, PCA &amp; heatmap, all clickable.</span></button>
+      <button class="tool-card" data-tab="cohort"><span class="tc-ic">⚖️</span><b>Cohort comparison</b><span>Define groups by metadata &amp; test which metabolic traits differ — with real statistics.</span></button>
+    </div>
+    <p class="home-note">All results and plots are downloadable. Verified against COBRApy &amp; scipy.</p>
   </div>
 
   <!-- ── EXPLORE (single / compare) ────────────────────────────────────────── -->
-  <div class="studio-panel active" id="panel-explore">
+  <div class="studio-panel" id="panel-explore">
     <div class="studio-card">
       <h2>Explore &amp; Compare</h2>
       <p class="fba-sub">Pick a strain model and a growth medium, then solve FBA or pFBA. Switch to <strong>Compare A vs B</strong> to contrast two models, two media, or the effect of a knockout. Media from Ardalani <em>et al.</em> (PLOS Pathogens, ppat.1013775).</p>
@@ -210,6 +243,74 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Production Envelope ────────────────────────────────────────────────── -->
+  <div class="studio-panel" id="panel-envelope">
+    <div class="studio-card">
+      <h2>Production Envelope</h2>
+      <p class="studio-sub">The trade-off between biomass and a target product: for each production level, the maximum (and minimum) growth the network allows. The frontier is the bioengineer's design space.</p>
+      <div class="studio-controls">
+        <div><label class="fld">Strain model</label><div class="fba-combo"><input class="form-control form-control-sm fba-combo-input" id="env-model-input" placeholder="Search genome name, strain or ID…" autocomplete="off"><div class="fba-combo-menu" id="env-model-menu"></div></div><div class="fba-modelcard" id="env-modelcard" style="display:none"></div></div>
+        <div><label class="fld">Growth medium</label><select class="form-select form-select-sm" id="env-media"></select>
+          <label class="fld" style="margin-top:0.5rem">Target product</label><select class="form-select form-select-sm" id="env-product"></select></div>
+        <div><label class="fld">&nbsp;</label><button class="btn btn-primary btn-sm" id="env-run" style="min-width:120px">▶ Run envelope</button></div>
+      </div>
+      <div class="studio-progress" id="env-prog"><div class="studio-progress-bar" id="env-prog-bar"></div></div>
+      <div class="fba-status" id="env-status"></div>
+      <div id="env-results" style="display:none">
+        <div class="viz"><div class="viz-head"><span>Growth vs production envelope</span><button class="viz-dl" data-plot="env-plot" data-type="plotly">⬇ PNG</button></div><div id="env-plot" class="plot-tall"></div></div>
+        <div id="env-note" class="fba-map-note"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Phenotype Phase Plane ──────────────────────────────────────────────── -->
+  <div class="studio-panel" id="panel-phaseplane">
+    <div class="studio-card">
+      <h2>Phenotype Phase Plane</h2>
+      <p class="studio-sub">Maximum growth rate across a grid of two uptake capacities — the classic Edwards–Palsson phenotype landscape. The surface reveals distinct metabolic regimes and their boundaries.</p>
+      <div class="studio-controls">
+        <div><label class="fld">Strain model</label><div class="fba-combo"><input class="form-control form-control-sm fba-combo-input" id="pp-model-input" placeholder="Search genome name, strain or ID…" autocomplete="off"><div class="fba-combo-menu" id="pp-model-menu"></div></div><div class="fba-modelcard" id="pp-modelcard" style="display:none"></div></div>
+        <div><label class="fld">Growth medium</label><select class="form-select form-select-sm" id="pp-media"></select>
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem"><div style="flex:1"><label class="fld">Axis X (uptake)</label><select class="form-select form-select-sm" id="pp-x"></select></div><div style="flex:1"><label class="fld">Axis Y (uptake)</label><select class="form-select form-select-sm" id="pp-y"></select></div></div></div>
+        <div><label class="fld">Grid</label><input type="number" id="pp-n" value="20" min="6" max="40" class="form-control form-control-sm" style="width:80px"><button class="btn btn-primary btn-sm mt-2" id="pp-run" style="min-width:120px">▶ Run plane</button></div>
+      </div>
+      <div class="studio-progress" id="pp-prog"><div class="studio-progress-bar" id="pp-prog-bar"></div></div>
+      <div class="fba-status" id="pp-status"></div>
+      <div id="pp-results" style="display:none">
+        <div class="viz"><div class="viz-head"><span>Growth-rate surface (h⁻¹)</span><button class="viz-dl" data-plot="pp-plot" data-type="plotly">⬇ PNG</button></div><div id="pp-plot" class="plot-tall"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Essentiality Screen ────────────────────────────────────────────────── -->
+  <div class="studio-panel" id="panel-essential">
+    <div class="studio-card">
+      <h2>Essentiality Screen</h2>
+      <p class="studio-sub">Knock out each reaction one at a time and measure the growth impact — mapping the essential, redundant and dispensable reactions of a strain on a given medium.</p>
+      <div class="studio-controls">
+        <div><label class="fld">Strain model</label><div class="fba-combo"><input class="form-control form-control-sm fba-combo-input" id="ess-model-input" placeholder="Search genome name, strain or ID…" autocomplete="off"><div class="fba-combo-menu" id="ess-model-menu"></div></div><div class="fba-modelcard" id="ess-modelcard" style="display:none"></div></div>
+        <div><label class="fld">Growth medium</label><select class="form-select form-select-sm" id="ess-media"></select>
+          <label class="fld" style="margin-top:0.5rem">Reaction scope</label><select class="form-select form-select-sm" id="ess-scope">
+            <option value="metabolic">Metabolic reactions (no exchange)</option>
+            <option value="all">All reactions</option>
+            <option value="exchange">Exchange reactions only</option></select></div>
+        <div><label class="fld">&nbsp;</label><button class="btn btn-primary btn-sm" id="ess-run" style="min-width:120px">▶ Run screen</button></div>
+      </div>
+      <div class="studio-progress" id="ess-prog"><div class="studio-progress-bar" id="ess-prog-bar"></div></div>
+      <div class="fba-status" id="ess-status"></div>
+      <div id="ess-results" style="display:none">
+        <div class="fba-kpis" id="ess-kpis"></div>
+        <div class="studio-grid2">
+          <div class="viz"><div class="viz-head"><span>Reaction essentiality classes</span><button class="viz-dl" data-plot="ess-plot-pie" data-type="plotly">⬇ PNG</button></div><div id="ess-plot-pie" class="plot"></div></div>
+          <div class="viz"><div class="viz-head"><span>Growth-ratio distribution</span><button class="viz-dl" data-plot="ess-plot-hist" data-type="plotly">⬇ PNG</button></div><div id="ess-plot-hist" class="plot"></div></div>
+        </div>
+        <div id="ess-table" style="margin-top:0.8rem"></div>
+        <button class="btn btn-sm btn-outline-secondary mt-2" id="ess-csv">⬇ Download essentiality table (CSV)</button>
+      </div>
+    </div>
+  </div>
+  </main>
 </div>
 
 <footer>

@@ -149,6 +149,71 @@ export async function runDFBA(model, mediaBounds, opts = {}) {
   return series;
 }
 
+// Production envelope: trade-off between biomass and a target product. Fix the
+// product flux at a grid of values from 0 to its maximum and record the max &
+// min biomass at each. opts: {points, knockouts}.
+export async function productionEnvelope(model, media, productId, opts = {}) {
+  const glpk = await getGLPK();
+  const points = opts.points || 20;
+  const lpP = buildLP(glpk, model, media, opts.knockouts);
+  lpP.objective = { direction: glpk.GLP_MAX, name: 'p', vars: [{ name: productId, coef: 1 }] };
+  const prodMax = (await glpk.solve(lpP, { msglev: glpk.GLP_MSG_OFF, presol: true })).result.z || 0;
+  const out = [];
+  for (let i = 0; i < points; i++) {
+    const v = prodMax * i / (points - 1);
+    const lp = buildLP(glpk, model, media, opts.knockouts);
+    for (const b of lp.bounds) if (b.name === productId) { b.lb = v; b.ub = v; b.type = glpk.GLP_FX; }
+    const mx = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result;
+    lp.objective = { ...lp.objective, direction: glpk.GLP_MIN };
+    const mn = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result;
+    out.push({ product: v, growthMax: mx.status === glpk.GLP_OPT ? mx.z : 0, growthMin: mn.status === glpk.GLP_OPT ? mn.z : 0 });
+    if (opts.onProgress) opts.onProgress(i + 1, points);
+  }
+  return { productId, prodMax, points: out };
+}
+
+// Phenotype phase plane: max biomass over a grid of two uptake capacities.
+// opts: {n, xMax, yMax, knockouts, onProgress}. Returns {xs, ys, Z} (Z[j][i]).
+export async function phasePlane(model, media, xId, yId, opts = {}) {
+  const n = opts.n || 20;
+  const xMax = opts.xMax != null ? opts.xMax : Math.abs(media[xId] != null ? media[xId] : 20);
+  const yMax = opts.yMax != null ? opts.yMax : Math.abs(media[yId] != null ? media[yId] : 20);
+  const xs = [], ys = [], Z = [];
+  for (let i = 0; i < n; i++) xs.push(xMax * i / (n - 1));
+  for (let j = 0; j < n; j++) ys.push(yMax * j / (n - 1));
+  let done = 0;
+  for (let j = 0; j < n; j++) {
+    const row = [];
+    for (let i = 0; i < n; i++) {
+      const m2 = { ...media, [xId]: -xs[i], [yId]: -ys[j] };
+      const fba = await runFBA(model, m2, { knockouts: opts.knockouts });
+      row.push(fba.optimal ? fba.growth : 0);
+      if (opts.onProgress) opts.onProgress(++done, n * n);
+    }
+    Z.push(row);
+  }
+  return { xId, yId, xs, ys, Z };
+}
+
+// Single-reaction deletion (essentiality) over a list of reactions.
+// Returns [{id, name, subsystem, growth, ratio}]. opts: {knockouts, onProgress}.
+export async function essentialityScan(model, mediaBounds, reactionIds, opts = {}) {
+  const wt = await runFBA(model, mediaBounds, { knockouts: opts.knockouts });
+  const wtG = wt.optimal ? wt.growth : 0;
+  const nameById = {}, subById = {};
+  model.reactions.forEach(r => { nameById[r.id] = r.name || ''; subById[r.id] = r.subsystem || ''; });
+  const base = opts.knockouts ? [...opts.knockouts] : [];
+  const out = [];
+  let done = 0;
+  for (const rid of reactionIds) {
+    const fba = await runFBA(model, mediaBounds, { knockouts: base.concat(rid) });
+    const g = fba.optimal ? fba.growth : 0;
+    out.push({ id: rid, name: nameById[rid], subsystem: subById[rid], growth: g, ratio: wtG > 1e-9 ? g / wtG : 0 });
+    if (opts.onProgress) opts.onProgress(++done, reactionIds.length);
+  }
+  return { wtGrowth: wtG, results: out };
+}
+
 // All exchange reactions in a model: {id, name, met, defaultLb, defaultUb}. For the media editor.
 export function listExchanges(model) {
   return model.reactions

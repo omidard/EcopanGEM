@@ -19,13 +19,17 @@ An interactive web application for exploring all **2,313 strain-specific genome-
 - **Model statistics** for every GEM: reaction count, metabolite count, gene count, exchange reactions, GPR coverage
 - **Click any GEM** to inspect its full content — reactions (with chemical formula and GPR rules), metabolites, and genes — in searchable tables
 - **Download selected GEMs** directly from the browser, or export the metadata table as CSV
-- **Flux Analysis Studio** ([`analysis.html`](https://omidard.github.io/EcopanGEM/analysis.html)) — a companion page that runs metabolic analyses on any GEM entirely **client-side** (the LP is solved in-browser with a WebAssembly build of GLPK; nothing is sent to a server):
+- **Flux Analysis Studio** ([`analysis.html`](https://omidard.github.io/EcopanGEM/analysis.html)) — a full constraint-based-modelling dashboard that runs on any GEM entirely **client-side** (the LP is solved in-browser with a WebAssembly build of GLPK; nothing is sent to a server). Every plot is downloadable (PNG / SVG). Tools:
   - **Explore & Compare** — FBA / parsimonious FBA, with editable media (per-compound uptake rates, add/remove compounds), reaction knockouts, a live **Escher** flux map, and an A-vs-B comparison mode.
-  - **Flux Variability Analysis (FVA)** — min/max flux of every exchange at a chosen fraction of optimal growth, as an interactive interval plot.
   - **Dynamic FBA** — batch-culture time-course (biomass, substrate depletion, product accumulation) with Michaelis–Menten uptake.
-  - **Multi-model analytics** — run FBA across many strains, then explore growth by phylogroup, an interactive flux **scatter**, a **PCA** of exchange-flux profiles, and a heatmap — all clickable (Plotly).
+  - **Flux Variability Analysis (FVA)** — min/max flux of every exchange at a chosen fraction of optimal growth.
+  - **Production Envelope** — the biomass-vs-product trade-off frontier for any secreted metabolite (strain-design map).
+  - **Phenotype Phase Plane** — the growth surface over two uptake capacities, as a contour landscape.
+  - **Essentiality Screen** — single-reaction knockout scan classifying every reaction (essential / severe / mild / dispensable).
+  - **Multi-model analytics** — run FBA across many strains → growth by phylogroup, an interactive flux **scatter**, a **PCA** of exchange-flux profiles, and a heatmap (all clickable, Plotly).
+  - **Cohort comparison** — define two groups by metadata (phylogroup, MLST, pathotype, isolation source, host…) and test which metabolic traits differ, with Mann–Whitney U + Benjamini–Hochberg FDR and a differential-flux volcano plot.
 
-  Media presets: M9 ± O₂ and the HMDB-derived **Feces / Urine / Serum** formulations from S3–S5 Tables of Ardalani *et al.* (PLOS Pathogens `ppat.1013775`). All growth rates, pFBA flux sums, knockouts and FVA ranges reproduce COBRApy to full precision.
+  Media presets: M9 ± O₂ and the HMDB-derived **Feces / Urine / Serum** formulations from S3–S5 Tables of Ardalani *et al.* (PLOS Pathogens `ppat.1013775`). All results — growth rates, pFBA sums, knockouts, FVA/envelope/phase-plane values and the cohort statistics — reproduce COBRApy / scipy to full precision.
 
 No installation required — runs entirely in the browser.
 

@@ -363,11 +363,11 @@ function renderSingle(R) {
   }
   box.insertAdjacentHTML('beforeend', `
     <div class="fba-charts">
-      <div class="fba-chart-card"><h6>Growth across media${cond.knockouts.size ? ' (with knockouts)' : ''}</h6><div class="fba-chart-box"><canvas id="ch-across"></canvas></div></div>
-      <div class="fba-chart-card"><h6>Top secreted end products</h6><div class="fba-chart-box"><canvas id="ch-sec"></canvas></div></div>
-      <div class="fba-chart-card"><h6>Top nutrient uptakes</h6><div class="fba-chart-box"><canvas id="ch-up"></canvas></div></div>
+      <div class="fba-chart-card"><h6>Growth across media${cond.knockouts.size ? ' (with knockouts)' : ''}<button class="viz-dl" data-plot="ch-across" data-type="chartjs" style="float:right">⬇</button></h6><div class="fba-chart-box"><canvas id="ch-across"></canvas></div></div>
+      <div class="fba-chart-card"><h6>Top secreted end products<button class="viz-dl" data-plot="ch-sec" data-type="chartjs" style="float:right">⬇</button></h6><div class="fba-chart-box"><canvas id="ch-sec"></canvas></div></div>
+      <div class="fba-chart-card"><h6>Top nutrient uptakes<button class="viz-dl" data-plot="ch-up" data-type="chartjs" style="float:right">⬇</button></h6><div class="fba-chart-box"><canvas id="ch-up"></canvas></div></div>
     </div>
-    <div class="fba-map-wrap"><h6 style="font-size:0.85rem;font-weight:700;color:#444;margin-bottom:0.4rem">Metabolic flux map</h6>
+    <div class="fba-map-wrap"><h6 style="font-size:0.85rem;font-weight:700;color:#444;margin-bottom:0.4rem">Metabolic flux map<button class="viz-dl" data-plot="ch-map" data-type="escher" style="float:right">⬇ SVG</button></h6>
       <div id="ch-map" style="width:100%;height:560px;border:1px solid #e5e8ec;border-radius:8px;background:#fff;overflow:hidden"></div>
       <div class="fba-map-note" id="ch-map-note"></div></div>
     <div id="ch-tables" style="margin-top:1.2rem"></div>`);
