@@ -41,7 +41,7 @@ Escherichia coli [https://doi.org/10.1371/journal.ppat.1013775].</em></p>
     </td>
     <td width="50%">
       <img src="docs/panel1.jpg" alt="Pangenome annotation and gene-based analyses" width="100%">
-      <p align="center"><em>Annotating the Pangenome Reveals the Diversity in the Genetic Basis for Metabolic Enzymes.</em></p>
+      <p align="center"><em>Annotating the Pangenome Reveals the Diversity in the Genetic Basis for Metabolic Enzymes [https://www.science.org/doi/10.1126/sciadv.aeb3363].</em></p>
     </td>
   </tr>
 </table>
