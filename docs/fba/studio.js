@@ -395,10 +395,195 @@ function downloadMultiCSV(rows) {
   saveCSV(csv, `multimodel_${$('mm-media').value}`);
 }
 
+// ── Statistics (validated vs scipy) ───────────────────────────────────────────
+function erf(x) { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x >= 0 ? y : -y; }
+function normalCdf(z) { return 0.5 * (1 + erf(z / Math.SQRT2)); }
+function mannWhitneyU(a, b) {
+  const n1 = a.length, n2 = b.length, N = n1 + n2;
+  if (!n1 || !n2) return { U: NaN, p: 1 };
+  const all = a.map(v => [v, 0]).concat(b.map(v => [v, 1])).sort((x, y) => x[0] - y[0]);
+  const ranks = new Array(N); let i = 0; const tie = [];
+  while (i < N) { let j = i; while (j < N - 1 && all[j + 1][0] === all[i][0]) j++; const r = (i + j + 2) / 2; for (let k = i; k <= j; k++) ranks[k] = r; if (j > i) tie.push(j - i + 1); i = j + 1; }
+  let R1 = 0; for (let k = 0; k < N; k++) if (all[k][1] === 0) R1 += ranks[k];
+  const U1 = R1 - n1 * (n1 + 1) / 2, U = Math.min(U1, n1 * n2 - U1), mu = n1 * n2 / 2;
+  const tieTerm = tie.reduce((s, t) => s + (t * t * t - t), 0);
+  const sigma = Math.sqrt(n1 * n2 / 12 * ((N + 1) - tieTerm / (N * (N - 1))));
+  if (!(sigma > 0)) return { U, p: 1 };
+  return { U, p: Math.min(1, 2 * normalCdf((U - mu + 0.5) / sigma)) };
+}
+function benjaminiHochberg(ps) {
+  const m = ps.length, idx = ps.map((p, i) => [p, i]).sort((a, b) => a[0] - b[0]), q = new Array(m); let prev = 1;
+  for (let k = m - 1; k >= 0; k--) { const [p, i] = idx[k]; const v = Math.min(prev, p * m / (k + 1)); q[i] = v; prev = v; }
+  return q;
+}
+
+// ── Cohort comparison tab ──────────────────────────────────────────────────────
+const COHORT_FIELDS = [['phylogroup', 'Phylogroup'], ['MLST', 'MLST (ST)'], ['pathovar', 'Pathotype'], ['isolation_source', 'Isolation source'], ['host_name', 'Host'], ['isolation_country', 'Country'], ['mash_cluster', 'MASH cluster'], ['serovar', 'Serovar'], ['oxygen_requirement', 'Oxygen requirement'], ['disease', 'Disease']];
+const cohort = { a: { field: 'phylogroup', values: new Set() }, b: { field: 'phylogroup', values: new Set(), complement: false }, results: null };
+const clean = (v) => { const s = String(v == null ? '' : v).trim(); return (s === '' || s === 'nan' || s === 'None' || s === '-1') ? '' : s; };
+
+function initCohort() {
+  fillMedia($('cohort-media'), null);
+  ['a', 'b'].forEach(c => setupCohortBuilder(c));
+  $('cohort-b-complement').addEventListener('change', () => { $('cohort-b-manual').style.display = $('cohort-b-complement').checked ? 'none' : 'block'; updateCohortCount('b'); });
+  $('cohort-run').addEventListener('click', runCohort);
+}
+function builderEl(c) { return document.querySelector(`.cohort-build[data-cohort="${c}"]`); }
+function setupCohortBuilder(c) {
+  const root = c === 'b' ? $('cohort-b-manual') : builderEl('a');
+  const fieldSel = root.querySelector('.cohort-field');
+  fieldSel.innerHTML = COHORT_FIELDS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
+  fieldSel.value = cohort[c].field;
+  fieldSel.addEventListener('change', () => { cohort[c].field = fieldSel.value; cohort[c].values = new Set(); renderCohortValues(c); });
+  root.querySelector('.cohort-valsearch').addEventListener('input', () => renderCohortValues(c));
+  renderCohortValues(c);
+}
+function fieldCounts(field) {
+  const c = {}; (window.gemMetadata || []).forEach(m => { const v = clean(m[field]); if (v) c[v] = (c[v] || 0) + 1; });
+  return Object.entries(c).sort((a, b) => b[1] - a[1]);
+}
+function renderCohortValues(c) {
+  const root = c === 'b' ? $('cohort-b-manual') : builderEl('a');
+  const box = root.querySelector('.cohort-values');
+  const q = root.querySelector('.cohort-valsearch').value.trim().toLowerCase();
+  let vals = fieldCounts(cohort[c].field);
+  if (q) vals = vals.filter(([v]) => v.toLowerCase().includes(q));
+  box.innerHTML = vals.slice(0, 300).map(([v, n]) =>
+    `<label><input type="checkbox" value="${esc(v)}" ${cohort[c].values.has(v) ? 'checked' : ''}> ${esc(v)} <span class="cnt">${n}</span></label>`).join('') || '<div class="fba-hint-inline" style="padding:4px">no values</div>';
+  box.querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => { cb.checked ? cohort[c].values.add(cb.value) : cohort[c].values.delete(cb.value); updateCohortCount(c); }));
+  updateCohortCount(c);
+}
+function cohortFiles(c) {
+  const md = window.gemMetadata || [];
+  if (c === 'b' && $('cohort-b-complement').checked) { const aset = new Set(cohortFiles('a')); return md.filter(m => !aset.has(m.gem_file)).map(m => m.gem_file); }
+  const vals = cohort[c].values;
+  if (!vals.size) return [];
+  return md.filter(m => vals.has(clean(m[cohort[c].field]))).map(m => m.gem_file);
+}
+function updateCohortCount(c) { $('cohort-' + c + '-count').textContent = cohortFiles(c).length + ' GEMs'; }
+
+async function runCohort() {
+  const aFiles = cohortFiles('a'), bFiles = cohortFiles('b');
+  if (aFiles.length < 3 || bFiles.length < 3) return setStatus('cohort-status', 'Each cohort needs ≥3 GEMs. Broaden your selection.', 'err');
+  const cap = Math.max(3, Math.min(80, +$('cohort-cap').value || 25));
+  const media = PRESETS[$('cohort-media').value].bounds;
+  const meth = document.querySelector('input[name="cohort-method"]:checked').value;
+  const sampA = sample(aFiles, cap), sampB = sample(bFiles, cap);
+  const overlap = new Set(sampA).size + new Set(sampB).size - new Set([...sampA, ...sampB]).size;
+  const jobs = [...sampA.map(f => ['A', f]), ...sampB.map(f => ['B', f])];
+  $('cohort-run').disabled = true; $('cohort-results').style.display = 'none';
+  setStatus('cohort-status', `Running ${meth.toUpperCase()} on ${jobs.length} models…`, 'busy'); prog('cohort-prog', 'cohort-prog-bar', 0);
+  try {
+    const t0 = performance.now();
+    const rows = [];
+    for (let i = 0; i < jobs.length; i++) {
+      const [grp, f] = jobs[i];
+      try { const model = await loadModel(f); const fba = await runFBA(model, media); let res = fba; if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) res = await runPFBA(model, media, fba); const ex = {}; for (const [id, v] of Object.entries(res.fluxes)) if (id.startsWith('EX_') && Math.abs(v) > 1e-6) ex[id] = v; rows.push({ grp, file: f, meta: meta(f), growth: fba.optimal ? fba.growth : 0, ex }); }
+      catch (e) { rows.push({ grp, file: f, meta: meta(f), growth: 0, ex: {} }); }
+      prog('cohort-prog', 'cohort-prog-bar', (i + 1) / jobs.length); setStatus('cohort-status', `Solved ${i + 1}/${jobs.length}…`, 'busy');
+    }
+    prog('cohort-prog', 'cohort-prog-bar', null);
+    cohort.results = { rows, aFiles, bFiles, sampA, sampB, overlap, meth };
+    renderCohort(cohort.results);
+    setStatus('cohort-status', `Done — ${jobs.length} models in ${((performance.now() - t0) / 1000).toFixed(1)} s.` + (overlap ? ` (${overlap} strain(s) in both cohorts)` : ''), 'ok');
+  } catch (e) { setStatus('cohort-status', 'Error: ' + e.message, 'err'); console.error(e); prog('cohort-prog', 'cohort-prog-bar', null); }
+  finally { $('cohort-run').disabled = false; }
+}
+function sample(arr, n) { if (arr.length <= n) return arr.slice(); const a = arr.slice(), out = []; for (let k = 0; k < n; k++) { const j = k + Math.floor(seededRand(k) * (a.length - k)); [a[k], a[j]] = [a[j], a[k]]; out.push(a[k]); } return out; }
+function labA() { return cohortLabel('a'); }
+function labB() { return $('cohort-b-complement').checked ? 'B (complement)' : cohortLabel('b'); }
+function cohortLabel(c) { const f = COHORT_FIELDS.find(x => x[0] === cohort[c].field)[1]; return `${f}=${[...cohort[c].values].join('/') || '—'}`; }
+
+function renderCohort(R) {
+  const A = R.rows.filter(r => r.grp === 'A'), B = R.rows.filter(r => r.grp === 'B');
+  const gA = A.map(r => r.growth), gB = B.map(r => r.growth);
+  const feasA = gA.filter(g => g > 1e-9), feasB = gB.filter(g => g > 1e-9);
+  const meanA = feasA.length ? feasA.reduce((s, v) => s + v, 0) / feasA.length : 0;
+  const meanB = feasB.length ? feasB.reduce((s, v) => s + v, 0) / feasB.length : 0;
+  const gTest = mannWhitneyU(gA, gB);
+  $('cohort-results').style.display = 'block';
+  $('cohort-kpis').innerHTML =
+    `<div class="fba-kpi"><div class="v" style="color:#2c6fbb">${A.length}</div><div class="l">Cohort A models</div></div>
+     <div class="fba-kpi"><div class="v" style="color:#c0392b">${B.length}</div><div class="l">Cohort B models</div></div>
+     <div class="fba-kpi"><div class="v">${fmt(meanA)} / ${fmt(meanB)}</div><div class="l">Mean growth A / B</div></div>
+     <div class="fba-kpi"><div class="v" style="color:${gTest.p < 0.05 ? '#1a7f4b' : '#666'}">${gTest.p < 1e-4 ? gTest.p.toExponential(1) : gTest.p.toFixed(3)}</div><div class="l">Growth MWU p-value</div></div>`;
+
+  // growth box
+  window.Plotly.newPlot('cohort-plot-growth', [
+    { type: 'box', boxpoints: 'all', jitter: 0.5, name: 'A: ' + labA(), y: gA, marker: { color: '#2c6fbb', size: 5 }, line: { color: '#2c6fbb' }, text: A.map(r => r.meta.genome_name || r.file) },
+    { type: 'box', boxpoints: 'all', jitter: 0.5, name: 'B: ' + labB(), y: gB, marker: { color: '#c0392b', size: 5 }, line: { color: '#c0392b' }, text: B.map(r => r.meta.genome_name || r.file) },
+  ], { margin: { l: 45, r: 10, t: 10, b: 30 }, height: 340, yaxis: { title: 'Growth (h⁻¹)', rangemode: 'tozero' }, showlegend: true, legend: { font: { size: 9 }, orientation: 'h', y: 1.12 }, font: { size: 11 } }, { responsive: true, displaylogo: false });
+
+  // differential exchange fluxes
+  const exIds = new Set(); R.rows.forEach(r => Object.keys(r.ex).forEach(id => exIds.add(id)));
+  const diff = [];
+  for (const id of exIds) {
+    const va = A.map(r => r.ex[id] || 0), vb = B.map(r => r.ex[id] || 0);
+    const nzA = va.filter(v => Math.abs(v) > 1e-9).length, nzB = vb.filter(v => Math.abs(v) > 1e-9).length;
+    if (nzA + nzB < 2) continue;
+    const mA = va.reduce((s, v) => s + v, 0) / va.length, mB = vb.reduce((s, v) => s + v, 0) / vb.length;
+    const t = mannWhitneyU(va, vb);
+    diff.push({ id, meanA: mA, meanB: mB, delta: mA - mB, p: t.p });
+  }
+  const qs = benjaminiHochberg(diff.map(d => d.p));
+  diff.forEach((d, i) => d.q = qs[i]);
+  diff.sort((a, b) => a.p - b.p);
+  _cohortDiff = diff;
+  renderVolcano(diff);
+  renderCohortBars(diff);
+  renderCohortPCA(R.rows);
+  renderCohortTable(diff);
+  $('cohort-detail').innerHTML = '';
+  $('cohort-csv').onclick = () => { let c = 'exchange_id,metabolite,mean_flux_A,mean_flux_B,delta_A_minus_B,mwu_p,bh_q\n'; diff.forEach(d => { c += `${d.id},${bio(d.id)},${d.meanA},${d.meanB},${d.delta},${d.p},${d.q}\n`; }); saveCSV(c, `cohort_${$('cohort-media').value}`); };
+}
+function renderVolcano(diff) {
+  const sig = diff.filter(d => d.q < 0.05), ns = diff.filter(d => !(d.q < 0.05));
+  const mk = (arr, color) => ({ type: 'scatter', mode: 'markers', x: arr.map(d => d.delta), y: arr.map(d => -Math.log10(Math.max(d.p, 1e-300))), text: arr.map(d => bio(d.id)), customdata: arr.map(d => d.id), marker: { color, size: 8, line: { color: '#fff', width: 0.4 } }, hovertemplate: '%{text}<br>Δ(A−B) %{x:.3f}<br>-log10 p %{y:.2f}<extra></extra>' });
+  window.Plotly.newPlot('cohort-plot-volcano', [
+    Object.assign(mk(ns, '#b8c2cf'), { name: 'ns' }),
+    Object.assign(mk(sig, '#7d3c98'), { name: 'FDR<0.05' }),
+  ], { margin: { l: 45, r: 10, t: 10, b: 40 }, height: 340, xaxis: { title: 'Δ mean flux (A − B)', zeroline: true }, yaxis: { title: '−log₁₀ p' }, legend: { font: { size: 9 } }, font: { size: 11 } }, { responsive: true, displaylogo: false })
+    .then(gd => gd.on('plotly_click', ev => showCohortDetail(ev.points[0].customdata)));
+}
+function renderCohortBars(diff) {
+  const top = diff.slice().sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 12).reverse();
+  window.Plotly.newPlot('cohort-plot-bars', [
+    { type: 'bar', orientation: 'h', name: 'A', y: top.map(d => bio(d.id)), x: top.map(d => d.meanA), marker: { color: '#2c6fbb' } },
+    { type: 'bar', orientation: 'h', name: 'B', y: top.map(d => bio(d.id)), x: top.map(d => d.meanB), marker: { color: '#c0392b' } },
+  ], { barmode: 'group', margin: { l: 70, r: 10, t: 10, b: 35 }, height: 340, xaxis: { title: 'Mean flux' }, legend: { font: { size: 9 } }, font: { size: 10 } }, { responsive: true, displaylogo: false });
+}
+function renderCohortPCA(rows) {
+  const feats = commonExchanges(rows, 2);
+  if (feats.length < 2 || rows.length < 4) { $('cohort-plot-pca').innerHTML = '<div class="fba-hint-inline" style="padding:1rem">Not enough data for PCA.</div>'; return; }
+  const n = rows.length;
+  let X = rows.map(r => feats.map(f => r.ex[f] || 0));
+  const mean = feats.map((_, j) => X.reduce((s, row) => s + row[j], 0) / n);
+  X = X.map(row => row.map((v, j) => v - mean[j]));
+  const G = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, k) => { let s = 0; for (let j = 0; j < feats.length; j++) s += X[i][j] * X[k][j]; return s; }));
+  const { values, vectors } = jacobiEigen(G);
+  const order = values.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]);
+  const tot = values.reduce((s, v) => s + Math.max(0, v), 0) || 1;
+  const pc = (rank) => { const [lam, idx] = order[rank]; const sq = Math.sqrt(Math.max(0, lam)); return { s: vectors.map(row => row[idx] * sq), ev: Math.max(0, lam) / tot }; };
+  const p1 = pc(0), p2 = pc(1);
+  const grp = (g, color, name) => { const idxs = rows.map((r, i) => [r, i]).filter(([r]) => r.grp === g).map(([, i]) => i); return { type: 'scatter', mode: 'markers', name, x: idxs.map(i => p1.s[i]), y: idxs.map(i => p2.s[i]), text: idxs.map(i => rows[i].meta.genome_name || rows[i].file), customdata: idxs.map(i => rows[i].file), marker: { color, size: 9, line: { color: '#fff', width: 0.5 } }, hovertemplate: '%{text}<extra>' + name + '</extra>' }; };
+  window.Plotly.newPlot('cohort-plot-pca', [grp('A', '#2c6fbb', 'Cohort A'), grp('B', '#c0392b', 'Cohort B')],
+    { margin: { l: 45, r: 10, t: 10, b: 40 }, height: 340, xaxis: { title: `PC1 (${(p1.ev * 100).toFixed(0)}%)` }, yaxis: { title: `PC2 (${(p2.ev * 100).toFixed(0)}%)` }, legend: { font: { size: 9 } }, font: { size: 11 } }, { responsive: true, displaylogo: false });
+}
+function renderCohortTable(diff) {
+  const rows = diff.slice(0, 40).map(d => `<tr><td><code>${esc(d.id)}</code></td><td>${esc(bio(d.id))}</td><td class="num">${fmt(d.meanA)}</td><td class="num">${fmt(d.meanB)}</td><td class="num" style="color:${d.delta >= 0 ? '#2c6fbb' : '#c0392b'}">${(d.delta >= 0 ? '+' : '') + fmt(d.delta)}</td><td class="num">${d.p < 1e-4 ? d.p.toExponential(1) : d.p.toFixed(4)}</td><td class="num" style="color:${d.q < 0.05 ? '#1a7f4b' : '#999'}">${d.q < 1e-4 ? d.q.toExponential(1) : d.q.toFixed(4)}</td></tr>`).join('');
+  $('cohort-table').innerHTML = `<div class="fba-tablewrap" style="max-height:320px"><table class="fba-flux"><thead><tr><th>Exchange</th><th>Metabolite</th><th>Mean A</th><th>Mean B</th><th>Δ(A−B)</th><th>MWU p</th><th>BH q</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function showCohortDetail(exId) {
+  const d = cohort.results && cohortDiffLookup(exId); if (!d) return;
+  $('cohort-detail').innerHTML = `<div class="fba-note" style="background:var(--accent)"><strong>${esc(bio(exId))}</strong> <code>${esc(exId)}</code> — mean flux A ${fmt(d.meanA)}, B ${fmt(d.meanB)}, Δ ${fmt(d.delta)} · MWU p ${d.p.toExponential(2)} · BH q ${d.q.toExponential(2)} ${d.q < 0.05 ? '<strong style="color:#1a7f4b">(significant)</strong>' : ''}</div>`;
+}
+let _cohortDiff = null;
+function cohortDiffLookup(id) { return (_cohortDiff || []).find(d => d.id === id); }
+
 // ── init ──────────────────────────────────────────────────────────────────────
 async function init() {
   await presets();
-  initTabs(); initFVA(); initDFBA(); initMulti();
+  initTabs(); initFVA(); initDFBA(); initMulti(); initCohort();
   // URL param handoff: ?tab=&model=&slot=&models=
   const q = new URLSearchParams(location.search);
   if (q.get('tab')) { const btn = document.querySelector(`#studio-tabs .studio-tab[data-tab="${q.get('tab')}"]`); if (btn) btn.click(); }

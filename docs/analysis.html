@@ -23,6 +23,7 @@
     <button class="studio-tab" data-tab="fva">Flux Variability (FVA)</button>
     <button class="studio-tab" data-tab="dfba">Dynamic FBA</button>
     <button class="studio-tab" data-tab="multi">Multi-model analytics</button>
+    <button class="studio-tab" data-tab="cohort">Cohort comparison</button>
   </div>
 
   <!-- ── EXPLORE (single / compare) ────────────────────────────────────────── -->
@@ -159,6 +160,53 @@
         </div>
         <div id="mm-detail" style="margin-top:0.6rem"></div>
         <button class="btn btn-sm btn-outline-secondary mt-2" id="mm-csv">⬇ Download growth + exchange fluxes (CSV)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cohort comparison ─────────────────────────────────────────────────── -->
+  <div class="studio-panel" id="panel-cohort">
+    <div class="studio-card">
+      <h2>Cohort comparison</h2>
+      <p class="studio-sub">Define two groups of strains by metadata — phylogroup, MLST, pathotype, isolation source, host… — then run FBA across each and test which metabolic capabilities differ. Growth is compared with a Mann–Whitney U test; per-exchange flux differences are shown as a volcano plot with Benjamini–Hochberg FDR.</p>
+      <div class="cohort-builders">
+        <div class="cohort-build" data-cohort="a">
+          <div class="cohort-head"><span class="cohort-badge">A</span> <span class="ttl">Cohort A</span> <span class="cohort-count" id="cohort-a-count">0 GEMs</span></div>
+          <label class="fld">Group by</label>
+          <select class="form-select form-select-sm cohort-field"></select>
+          <input class="form-control form-control-sm cohort-valsearch" placeholder="filter values…" style="margin-top:5px">
+          <div class="cohort-values"></div>
+        </div>
+        <div class="cohort-build" data-cohort="b">
+          <div class="cohort-head"><span class="cohort-badge" style="background:#c0392b">B</span> <span class="ttl">Cohort B</span> <span class="cohort-count" id="cohort-b-count">0 GEMs</span></div>
+          <label class="fld"><input type="checkbox" id="cohort-b-complement"> B = all other GEMs (complement of A)</label>
+          <div id="cohort-b-manual">
+            <label class="fld">Group by</label>
+            <select class="form-select form-select-sm cohort-field"></select>
+            <input class="form-control form-control-sm cohort-valsearch" placeholder="filter values…" style="margin-top:5px">
+            <div class="cohort-values"></div>
+          </div>
+        </div>
+      </div>
+      <div class="cohort-run-row">
+        <div><label class="fld">Growth medium</label><select class="form-select form-select-sm" id="cohort-media"></select></div>
+        <div><label class="fld">Method</label><div class="fba-method"><label><input type="radio" name="cohort-method" value="fba" checked> FBA</label><label><input type="radio" name="cohort-method" value="pfba"> pFBA</label></div></div>
+        <div><label class="fld">Max models / cohort <span class="fba-hint-inline">(random sample if larger)</span></label><input type="number" id="cohort-cap" value="25" min="3" max="80" class="form-control form-control-sm" style="width:90px"></div>
+        <div><label class="fld">&nbsp;</label><button class="btn btn-primary btn-sm" id="cohort-run" style="min-width:130px">▶ Compare cohorts</button></div>
+      </div>
+      <div class="studio-progress" id="cohort-prog"><div class="studio-progress-bar" id="cohort-prog-bar"></div></div>
+      <div class="fba-status" id="cohort-status"></div>
+      <div id="cohort-results" style="display:none">
+        <div class="fba-kpis" id="cohort-kpis"></div>
+        <div class="studio-grid2">
+          <div class="fba-chart-card"><h6>Growth rate: Cohort A vs B</h6><div id="cohort-plot-growth" class="plot"></div></div>
+          <div class="fba-chart-card"><h6>Differential exchange fluxes (volcano · click a point)</h6><div id="cohort-plot-volcano" class="plot"></div></div>
+          <div class="fba-chart-card"><h6>PCA of flux profiles (by cohort)</h6><div id="cohort-plot-pca" class="plot"></div></div>
+          <div class="fba-chart-card"><h6>Top differential exchanges (mean flux)</h6><div id="cohort-plot-bars" class="plot"></div></div>
+        </div>
+        <div id="cohort-detail" style="margin-top:0.5rem"></div>
+        <div id="cohort-table" style="margin-top:0.8rem"></div>
+        <button class="btn btn-sm btn-outline-secondary mt-2" id="cohort-csv">⬇ Download differential-flux table (CSV)</button>
       </div>
     </div>
   </div>
