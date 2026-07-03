@@ -9,29 +9,43 @@ This repository contains data and code for the pangenome-scale metabolic reconst
 
 ---
 
-## EcopanGEM Browser — Browse, Search & Download GEMs
+## Explore the models online
 
-**https://omidard.github.io/EcopanGEM/**
+Two interactive web apps ship with this project — both run **entirely in your browser**: no install, no login, and nothing is ever sent to a server.
 
-An interactive web application for exploring all **2,313 strain-specific genome-scale metabolic models (GEMs)** produced in this study. Features:
+<table>
+<tr>
+<td width="50%" valign="top">
+<h3 align="center">🧬 EcopanGEM Browser</h3>
+<a href="https://omidard.github.io/EcopanGEM/" title="Open the EcopanGEM Browser"><img src="docs/screenshot_browser.png" alt="EcopanGEM Browser — a searchable, filterable table of 2,313 E. coli strain GEMs" width="100%"></a>
+<p>Browse, search and <b>filter all 2,313 strain-specific GEMs</b> by phylogroup, MLST, isolation source, country, host, disease and 54 metadata columns. Every model shows its reaction / metabolite / gene / exchange / GPR counts — <b>click one to inspect its full reactions, metabolites and genes</b> in searchable tables. Download any selection, or export the metadata table as CSV.</p>
+<p align="center"><a href="https://omidard.github.io/EcopanGEM/"><img src="https://img.shields.io/badge/%E2%96%B6%20Launch%20the%20Browser-2C6FBB?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Launch the Browser"></a></p>
+</td>
+<td width="50%" valign="top">
+<h3 align="center">⚗️ Flux Analysis Studio</h3>
+<a href="https://omidard.github.io/EcopanGEM/analysis.html" title="Open the Flux Analysis Studio"><img src="docs/screenshot_flux_studio.png" alt="Flux Analysis Studio — in-browser FBA with an Escher flux map" width="100%"></a>
+<p>A full <b>constraint-based-modelling workbench</b>: FBA / pFBA, FVA, dynamic FBA, production envelopes, phenotype phase planes, essentiality screens and multi-model / group comparisons — the LP is solved <b>client-side</b> with a WebAssembly build of GLPK. Editable media (M9 ± O₂, simulated gut / urine / blood), reaction knockouts, and a live <b>Escher</b> flux map. Every plot downloads as PNG / SVG.</p>
+<p align="center"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="https://img.shields.io/badge/%E2%96%B6%20Launch%20Flux%20Studio-1A7F4B?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Launch Flux Studio"></a></p>
+</td>
+</tr>
+</table>
 
-- **Search & filter** by phylogroup, MLST, isolation source, country, host, disease, and 54 metadata columns
-- **Model statistics** for every GEM: reaction count, metabolite count, gene count, exchange reactions, GPR coverage
-- **Click any GEM** to inspect its full content — reactions (with chemical formula and GPR rules), metabolites, and genes — in searchable tables
-- **Download selected GEMs** directly from the browser, or export the metadata table as CSV
-- **Flux Analysis Studio** ([`analysis.html`](https://omidard.github.io/EcopanGEM/analysis.html)) — a full constraint-based-modelling dashboard that runs on any GEM entirely **client-side** (the LP is solved in-browser with a WebAssembly build of GLPK; nothing is sent to a server). Every plot is downloadable (PNG / SVG). Tools:
-  - **Explore & Compare** — FBA / parsimonious FBA, with editable media (per-compound uptake rates, add/remove compounds), reaction knockouts, a live **Escher** flux map, and an A-vs-B comparison mode.
-  - **Dynamic FBA** — batch-culture time-course (biomass, substrate depletion, product accumulation) with Michaelis–Menten uptake.
-  - **Flux Variability Analysis (FVA)** — min/max flux of every exchange at a chosen fraction of optimal growth.
-  - **Production Envelope** — the biomass-vs-product trade-off frontier for any secreted metabolite (strain-design map).
-  - **Phenotype Phase Plane** — the growth surface over two uptake capacities, as a contour landscape.
-  - **Essentiality Screen** — single-reaction knockout scan classifying every reaction (essential / severe / mild / dispensable).
-  - **Multi-model analytics** — run FBA across many strains → growth by phylogroup, an interactive flux **scatter**, a **PCA** of exchange-flux profiles, and a heatmap (all clickable, Plotly).
-  - **Group comparison** — define two groups by metadata (phylogroup, MLST, pathotype, isolation source, host…) and test which metabolic traits differ, with Mann–Whitney U + Benjamini–Hochberg FDR and a differential-flux volcano plot.
+<details>
+<summary><b>What's inside the Flux Analysis Studio</b> (click to expand)</summary>
 
-  Media presets: M9 ± O₂ and the HMDB-derived **Feces / Urine / Serum** formulations from S3–S5 Tables of Ardalani *et al.* (PLOS Pathogens `ppat.1013775`). All results — growth rates, pFBA sums, knockouts, FVA/envelope/phase-plane values and the cohort statistics — reproduce COBRApy / scipy to full precision.
+<br>
 
-No installation required — runs entirely in the browser.
+- **Explore & Compare** — FBA / parsimonious FBA, with editable media (per-compound uptake rates, add/remove compounds), reaction knockouts, a live **Escher** flux map, and an A-vs-B comparison mode.
+- **Dynamic FBA** — batch-culture time-course (biomass, substrate depletion, product accumulation) with Michaelis–Menten uptake.
+- **Flux Variability Analysis (FVA)** — min/max flux of every exchange at a chosen fraction of optimal growth.
+- **Production Envelope** — the biomass-vs-product trade-off frontier for any secreted metabolite (strain-design map).
+- **Phenotype Phase Plane** — the growth surface over two uptake capacities, as a contour landscape.
+- **Essentiality Screen** — single-reaction knockout scan classifying every reaction (essential / severe / mild / dispensable).
+- **Multi-model analytics** — run FBA across many strains → growth by phylogroup, an interactive flux **scatter**, a **PCA** of exchange-flux profiles, and a heatmap (all clickable, Plotly).
+- **Group comparison** — define two groups by metadata (phylogroup, MLST, pathotype, isolation source, host…) and test which metabolic traits differ, with Mann–Whitney U + Benjamini–Hochberg FDR and a differential-flux volcano plot.
+
+Media presets: M9 ± O₂ and the HMDB-derived **Feces / Urine / Serum** formulations from S3–S5 Tables of Ardalani *et al.* (PLOS Pathogens `ppat.1013775`). All results — growth rates, pFBA sums, knockouts, FVA/envelope/phase-plane values and the cohort statistics — reproduce COBRApy / scipy to full precision.
+</details>
 
 
 ---
