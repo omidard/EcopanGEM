@@ -13,22 +13,51 @@ This repository contains data and code for the pangenome-scale metabolic reconst
 
 Two interactive web apps ship with this project — both run **entirely in your browser**: no install, no login, and nothing is ever sent to a server.
 
+<!-- ─────────────────────────  EcopanGEM Browser  ───────────────────────── -->
+### 🧬 EcopanGEM Browser
+
+Browse, search and **filter all 2,313 strain-specific GEMs** by phylogroup, MLST, isolation source, country, host, disease and 54 metadata columns. Every model shows its reaction / metabolite / gene / exchange / GPR counts — **click any model to open it** and inspect its full reactions, metabolites and genes in searchable tables. Download any selection, or send a set straight to the analysis studio.
+
 <table>
 <tr>
-<td width="50%" valign="top">
-<h3 align="center">🧬 EcopanGEM Browser</h3>
-<a href="https://omidard.github.io/EcopanGEM/" title="Open the EcopanGEM Browser"><img src="docs/screenshot_browser.png" alt="EcopanGEM Browser — a searchable, filterable table of 2,313 E. coli strain GEMs" width="100%"></a>
-<p>Browse, search and <b>filter all 2,313 strain-specific GEMs</b> by phylogroup, MLST, isolation source, country, host, disease and 54 metadata columns. Every model shows its reaction / metabolite / gene / exchange / GPR counts — <b>click one to inspect its full reactions, metabolites and genes</b> in searchable tables. Download any selection, or export the metadata table as CSV.</p>
-<p align="center"><a href="https://omidard.github.io/EcopanGEM/"><img src="https://img.shields.io/badge/%E2%96%B6%20Launch%20the%20Browser-2C6FBB?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Launch the Browser"></a></p>
-</td>
-<td width="50%" valign="top">
-<h3 align="center">⚗️ Flux Analysis Studio</h3>
-<a href="https://omidard.github.io/EcopanGEM/analysis.html" title="Open the Flux Analysis Studio"><img src="docs/screenshot_flux_studio.png" alt="Flux Analysis Studio — in-browser FBA with an Escher flux map" width="100%"></a>
-<p>A full <b>constraint-based-modelling workbench</b>: FBA / pFBA, FVA, dynamic FBA, production envelopes, phenotype phase planes, essentiality screens and multi-model / group comparisons — the LP is solved <b>client-side</b> with a WebAssembly build of GLPK. Editable media (M9 ± O₂, simulated gut / urine / blood), reaction knockouts, and a live <b>Escher</b> flux map. Every plot downloads as PNG / SVG.</p>
-<p align="center"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="https://img.shields.io/badge/%E2%96%B6%20Launch%20Flux%20Studio-1A7F4B?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Launch Flux Studio"></a></p>
-</td>
+<td width="50%"><a href="https://omidard.github.io/EcopanGEM/"><img src="docs/shot_browser_1.png" alt="Searchable, filterable table of 2,313 E. coli strain GEMs" width="100%"></a></td>
+<td width="50%"><a href="https://omidard.github.io/EcopanGEM/"><img src="docs/shot_browser_2.png" alt="Toggle any of 54 metadata columns" width="100%"></a></td>
+</tr>
+<tr>
+<td width="50%"><a href="https://omidard.github.io/EcopanGEM/"><img src="docs/shot_browser_3.png" alt="Per-model reactions with GPR rules and bounds" width="100%"></a></td>
+<td width="50%"><a href="https://omidard.github.io/EcopanGEM/"><img src="docs/shot_browser_4.png" alt="Per-model genes and metabolites" width="100%"></a></td>
 </tr>
 </table>
+
+<p align="center">
+  <em>Searchable table · 54 metadata columns · per-model reactions, metabolites &amp; genes</em><br><br>
+  <a href="https://omidard.github.io/EcopanGEM/"><img src="https://img.shields.io/badge/%E2%96%B6%20Open%20the%20EcopanGEM%20Browser-2C6FBB?style=for-the-badge&logo=googlechrome&logoColor=white" height="42" alt="Open the EcopanGEM Browser"></a>
+  &nbsp;&nbsp;<a href="https://omidard.github.io/EcopanGEM/"><code>omidard.github.io/EcopanGEM</code></a>
+</p>
+
+<br>
+
+<!-- ─────────────────────────  Flux Analysis Studio  ───────────────────────── -->
+### ⚗️ Flux Analysis Studio
+
+A full **constraint-based-modelling workbench** — the LP is solved **client-side** with a WebAssembly build of GLPK. Eight tools: FBA / pFBA with editable media &amp; knockouts, dynamic FBA, flux variability, production envelopes, phenotype phase planes, essentiality screens, multi-model analytics and metadata **group comparison** — each with a live **Escher** flux map or interactive Plotly charts, and every plot downloads as PNG / SVG.
+
+<table>
+<tr>
+<td width="50%"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="docs/shot_studio_1.png" alt="Tool gallery — eight in-browser analyses" width="100%"></a></td>
+<td width="50%"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="docs/shot_studio_2.png" alt="FBA with a live Escher flux map" width="100%"></a></td>
+</tr>
+<tr>
+<td width="50%"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="docs/shot_studio_3.png" alt="Phenotype phase plane — growth surface over two uptake rates" width="100%"></a></td>
+<td width="50%"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="docs/shot_studio_4.png" alt="Multi-model analytics — growth, flux scatter, PCA and heatmap" width="100%"></a></td>
+</tr>
+</table>
+
+<p align="center">
+  <em>FBA · pFBA · FVA · dynamic FBA · production envelope · phase plane · essentiality · multi-model · group comparison</em><br><br>
+  <a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="https://img.shields.io/badge/%E2%9A%97%EF%B8%8F%20Launch%20the%20Flux%20Analysis%20Studio-1A7F4B?style=for-the-badge&logo=googlechrome&logoColor=white" height="42" alt="Launch the Flux Analysis Studio"></a>
+  &nbsp;&nbsp;<a href="https://omidard.github.io/EcopanGEM/analysis.html"><code>omidard.github.io/EcopanGEM/analysis.html</code></a>
+</p>
 
 <details>
 <summary><b>What's inside the Flux Analysis Studio</b> (click to expand)</summary>
