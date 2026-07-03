@@ -19,6 +19,7 @@ An interactive web application for exploring all **2,313 strain-specific genome-
 - **Model statistics** for every GEM: reaction count, metabolite count, gene count, exchange reactions, GPR coverage
 - **Click any GEM** to inspect its full content — reactions (with chemical formula and GPR rules), metabolites, and genes — in searchable tables
 - **Download selected GEMs** directly from the browser, or export the metadata table as CSV
+- **Flux Balance Analysis in the browser** — pick any strain model and a growth medium, then run **FBA or parsimonious FBA (pFBA)** with no server: the linear program is solved client-side with a WebAssembly build of GLPK. Returns the predicted growth rate, nutrient uptake and secreted end-product fluxes, a growth-across-media comparison, and a live **Escher** flux map of central metabolism. Media presets (M9 ± O₂, and the HMDB-derived **Feces / Urine / Serum** formulations from S3–S5 Tables of Ardalani *et al.*, PLOS Pathogens `ppat.1013775`). The solver reproduces COBRApy growth and pFBA flux sums to 6 significant figures.
 
 No installation required — runs entirely in the browser.
 
