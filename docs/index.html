@@ -22,6 +22,10 @@
   }
   .stat-card .num { font-size: 1.6rem; font-weight: 700; color: var(--primary); }
   .stat-card .label { font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .usage-card { border-top: 3px solid #1a7f4b; }
+  .usage-card .num { color: #1a7f4b; }
+  .usage-card .label { display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
+  .usage-note { font-size: 0.72rem; color: #999; margin: -0.4rem 0 0.6rem; }
   .filter-row { background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   .filter-row select { font-size: 0.85rem; }
@@ -131,6 +135,13 @@
     <div class="col-6 col-md-3"><div class="stat-card"><div class="num" id="stat-countries">-</div><div class="label">Countries</div></div></div>
   </div>
 
+  <!-- Usage / dissemination stats (GoatCounter) -->
+  <div class="row g-3" id="usage-stats-row">
+    <div class="col-6 col-md-3"><div class="stat-card usage-card"><div class="num" id="stat-views">-</div><div class="label"><span>👁</span> Page Views</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card usage-card"><div class="num" id="stat-downloads">-</div><div class="label"><span>⬇</span> GEM Downloads</div></div></div>
+  </div>
+  <div class="usage-note">Live usage since launch · updated hourly</div>
+
   <!-- Filters -->
   <div class="filter-row">
     <div class="row g-2 align-items-end">
@@ -239,6 +250,53 @@
 const ZENODO_ZIP = 'https://zenodo.org/records/17581962/files/Ecoli_GEMs_for_Complete_genomes.zip?download=1';
 // Batch zips served from same origin (docs/gems/) — no CORS issues
 const BATCH_URL_BASE = 'gems/gems_batch_';
+
+// ── Usage analytics (GoatCounter) ───────────────────────────────────────────
+// Set GC_CODE to your GoatCounter account/site code. Dashboard: https://<GC_CODE>.goatcounter.com
+// For the live "Page Views" / "GEM Downloads" numbers to display, enable
+// "Allow adding visitor counts on your website" in GoatCounter → Settings.
+const GC_CODE = 'ecopangem';
+const GC_DOWNLOAD_EVENT = 'download';   // unified event path counted as a "GEM download"
+
+// Load the GoatCounter tracker (auto-counts each page view)
+(function loadGoatCounter() {
+  if (!GC_CODE) return;
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = '//gc.zgo.at/count.js';
+  s.setAttribute('data-goatcounter', 'https://' + GC_CODE + '.goatcounter.com/count');
+  document.head.appendChild(s);
+})();
+
+// Record a custom event (e.g. a download click)
+function gcEvent(path, title) {
+  try {
+    if (window.goatcounter && typeof window.goatcounter.count === 'function') {
+      window.goatcounter.count({ path: path, title: title || path, event: true });
+    }
+  } catch (e) { /* analytics must never break the app */ }
+}
+
+// Fetch the public counter JSON and show it in an element
+async function gcShowCount(elId, counterPath) {
+  const el = document.getElementById(elId);
+  if (!el || !GC_CODE) return;
+  const url = 'https://' + GC_CODE + '.goatcounter.com/counter/' + counterPath + '.json';
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (r.ok) { const j = await r.json(); el.textContent = (j && j.count != null) ? j.count : '0'; }
+    else { el.textContent = '0'; }   // 404 = no hits recorded yet
+  } catch (e) { el.textContent = '-'; }
+}
+
+// Populate the on-page usage cards
+function loadUsageCounts() {
+  gcShowCount('stat-views', 'TOTAL');
+  gcShowCount('stat-downloads', encodeURIComponent(GC_DOWNLOAD_EVENT));
+}
+window.addEventListener('DOMContentLoaded', loadUsageCounts);
+// ────────────────────────────────────────────────────────────────────────────
+
 let table;
 let gemBatchMap = {};  // gem_file -> batch number
 
@@ -344,7 +402,11 @@ function clearFilters() {
   document.querySelectorAll('.filter-row select').forEach(s => s.value = '');
   table.columns().search('').draw();
 }
-function downloadAll() { window.open(ZENODO_ZIP, '_blank'); }
+function downloadAll() {
+  gcEvent(GC_DOWNLOAD_EVENT, 'GEM download');
+  gcEvent('download-zenodo-all', 'Download all GEMs (Zenodo)');
+  window.open(ZENODO_ZIP, '_blank');
+}
 function copySelected() {
   const rows = table.rows({ selected: true }).data();
   const fns = [];
@@ -488,6 +550,8 @@ async function downloadSelected() {
     const outBlob = await outputZip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 
     setDlProgress(100, `Done! ${found} GEM(s) ready.`);
+    gcEvent(GC_DOWNLOAD_EVENT, 'GEM download');
+    gcEvent('download-selected', `Download ${found} selected GEM(s)`);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(outBlob);
     a.download = `EcopanGEM_selected_${found}_models.zip`;
@@ -527,6 +591,7 @@ function exportCSV() {
     }).join(',') + '\n';
   });
 
+  gcEvent('export-csv', 'Export metadata table (CSV)');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
