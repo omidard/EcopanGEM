@@ -12,7 +12,9 @@ export async function getGLPK() {
 // Build the LP: max c·v  s.t.  S·v = 0,  lb <= v <= ub.
 // mediaBounds (optional): {EX_id: lower_bound}. When given, every exchange not
 // listed is closed (lb=0), reproducing the "defined medium" convention.
-function buildLP(glpk, model, mediaBounds) {
+// knockouts (optional): Set/array of reaction ids forced to lb=ub=0.
+function buildLP(glpk, model, mediaBounds, knockouts) {
+  const koSet = knockouts ? (knockouts instanceof Set ? knockouts : new Set(knockouts)) : null;
   const metRows = {};
   for (const met of model.metabolites)
     metRows[met.id] = { name: met.id, vars: [], bnds: { type: glpk.GLP_FX, ub: 0, lb: 0 } };
@@ -23,6 +25,7 @@ function buildLP(glpk, model, mediaBounds) {
     let lb = rxn.lower_bound, ub = rxn.upper_bound;
     if (mediaBounds && rxn.id.startsWith('EX_'))
       lb = Object.prototype.hasOwnProperty.call(mediaBounds, rxn.id) ? mediaBounds[rxn.id] : 0;
+    if (koSet && koSet.has(rxn.id)) { lb = 0; ub = 0; }
     let type;
     if (lb === ub) type = glpk.GLP_FX;
     else if (lb <= -1e30 && ub >= 1e30) type = glpk.GLP_FR;
@@ -43,9 +46,9 @@ function buildLP(glpk, model, mediaBounds) {
   };
 }
 
-export async function runFBA(model, mediaBounds) {
+export async function runFBA(model, mediaBounds, opts) {
   const glpk = await getGLPK();
-  const lp = buildLP(glpk, model, mediaBounds);
+  const lp = buildLP(glpk, model, mediaBounds, opts && opts.knockouts);
   const res = await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true });
   const r = res.result;
   return {
@@ -56,12 +59,12 @@ export async function runFBA(model, mediaBounds) {
 
 // Parsimonious FBA: fix biomass at the FBA optimum, then minimize total flux
 // sum|v|. |v_i| is linearized with aux vars a_i >= v_i, a_i >= -v_i (min sum a_i).
-export async function runPFBA(model, mediaBounds, fbaResult) {
+export async function runPFBA(model, mediaBounds, fbaResult, opts) {
   const glpk = await getGLPK();
-  const fba = fbaResult || (await runFBA(model, mediaBounds));
+  const fba = fbaResult || (await runFBA(model, mediaBounds, opts));
   if (!fba.optimal || !(fba.growth > 1e-9)) return { ...fba, pfba: false };
 
-  const lp = buildLP(glpk, model, mediaBounds);
+  const lp = buildLP(glpk, model, mediaBounds, opts && opts.knockouts);
   const objId = fba.objectiveId;
   const gTarget = fba.growth * (1 - 1e-6);
   for (const b of lp.bounds)
@@ -87,6 +90,20 @@ export async function runPFBA(model, mediaBounds, fbaResult) {
     status: r.status, optimal: r.status === glpk.GLP_OPT,
     growth: fluxes[objId], objectiveId: objId, totalFlux: r.z, fluxes, pfba: true,
   };
+}
+
+// All exchange reactions in a model: {id, name, met, defaultLb, defaultUb}. For the media editor.
+export function listExchanges(model) {
+  return model.reactions
+    .filter(r => r.id.startsWith('EX_'))
+    .map(r => ({ id: r.id, name: r.name || r.id, met: Object.keys(r.metabolites || {})[0] || '',
+                 defaultLb: r.lower_bound, defaultUb: r.upper_bound }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+// All reactions (id + name) for the knockout search.
+export function listReactions(model) {
+  return model.reactions.map(r => ({ id: r.id, name: r.name || '', subsystem: r.subsystem || '' }));
 }
 
 // Split exchange fluxes into uptake (negative) and secretion (positive), sorted by magnitude.
