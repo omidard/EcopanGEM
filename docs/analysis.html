@@ -28,7 +28,7 @@
       <button class="nav-item" data-tab="essential"><span class="ni">🎯</span> Essentiality Screen</button>
       <div class="nav-group">Populations</div>
       <button class="nav-item" data-tab="multi"><span class="ni">🌐</span> Multi-model</button>
-      <button class="nav-item" data-tab="cohort"><span class="ni">⚖️</span> Cohort comparison</button>
+      <button class="nav-item" data-tab="cohort"><span class="ni">⚖️</span> Group comparison</button>
     </nav>
     <div class="sidebar-foot">100% in-browser<br>glpk.js · Escher · Plotly</div>
   </aside>
@@ -54,7 +54,7 @@
       <button class="tool-card" data-tab="phaseplane"><span class="tc-ic">🗺️</span><b>Phenotype Phase Plane</b><span>Growth surface over two uptake rates — the classic 2-D phenotype landscape.</span></button>
       <button class="tool-card" data-tab="essential"><span class="tc-ic">🎯</span><b>Essentiality Screen</b><span>Single-reaction knockout scan — find the essential, redundant &amp; dispensable reactions.</span></button>
       <button class="tool-card" data-tab="multi"><span class="tc-ic">🌐</span><b>Multi-model analytics</b><span>Run FBA across many strains — growth, flux scatter, PCA &amp; heatmap, all clickable.</span></button>
-      <button class="tool-card" data-tab="cohort"><span class="tc-ic">⚖️</span><b>Cohort comparison</b><span>Define groups by metadata &amp; test which metabolic traits differ — with real statistics.</span></button>
+      <button class="tool-card" data-tab="cohort"><span class="tc-ic">⚖️</span><b>Group comparison</b><span>Define groups by metadata &amp; test which metabolic traits differ — with real statistics.</span></button>
     </div>
     <p class="home-note">All results and plots are downloadable. Verified against COBRApy &amp; scipy.</p>
   </div>
@@ -200,18 +200,18 @@
   <!-- ── Cohort comparison ─────────────────────────────────────────────────── -->
   <div class="studio-panel" id="panel-cohort">
     <div class="studio-card">
-      <h2>Cohort comparison</h2>
+      <h2>Group comparison</h2>
       <p class="studio-sub">Define two groups of strains by metadata — phylogroup, MLST, pathotype, isolation source, host… — then run FBA across each and test which metabolic capabilities differ. Growth is compared with a Mann–Whitney U test; per-exchange flux differences are shown as a volcano plot with Benjamini–Hochberg FDR.</p>
       <div class="cohort-builders">
         <div class="cohort-build" data-cohort="a">
-          <div class="cohort-head"><span class="cohort-badge">A</span> <span class="ttl">Cohort A</span> <span class="cohort-count" id="cohort-a-count">0 GEMs</span></div>
+          <div class="cohort-head"><span class="cohort-badge">A</span> <span class="ttl">Group A</span> <span class="cohort-count" id="cohort-a-count">0 GEMs</span></div>
           <label class="fld">Group by</label>
           <select class="form-select form-select-sm cohort-field"></select>
           <input class="form-control form-control-sm cohort-valsearch" placeholder="filter values…" style="margin-top:5px">
           <div class="cohort-values"></div>
         </div>
         <div class="cohort-build" data-cohort="b">
-          <div class="cohort-head"><span class="cohort-badge" style="background:#c0392b">B</span> <span class="ttl">Cohort B</span> <span class="cohort-count" id="cohort-b-count">0 GEMs</span></div>
+          <div class="cohort-head"><span class="cohort-badge" style="background:#c0392b">B</span> <span class="ttl">Group B</span> <span class="cohort-count" id="cohort-b-count">0 GEMs</span></div>
           <label class="fld"><input type="checkbox" id="cohort-b-complement"> B = all other GEMs (complement of A)</label>
           <div id="cohort-b-manual">
             <label class="fld">Group by</label>
@@ -232,7 +232,7 @@
       <div id="cohort-results" style="display:none">
         <div class="fba-kpis" id="cohort-kpis"></div>
         <div class="studio-grid2">
-          <div class="fba-chart-card"><h6>Growth rate: Cohort A vs B</h6><div id="cohort-plot-growth" class="plot"></div></div>
+          <div class="fba-chart-card"><h6>Growth rate: Group A vs B</h6><div id="cohort-plot-growth" class="plot"></div></div>
           <div class="fba-chart-card"><h6>Differential exchange fluxes (volcano · click a point)</h6><div id="cohort-plot-volcano" class="plot"></div></div>
           <div class="fba-chart-card"><h6>PCA of flux profiles (by cohort)</h6><div id="cohort-plot-pca" class="plot"></div></div>
           <div class="fba-chart-card"><h6>Top differential exchanges (mean flux)</h6><div id="cohort-plot-bars" class="plot"></div></div>

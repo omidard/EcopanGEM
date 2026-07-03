@@ -27,7 +27,7 @@ An interactive web application for exploring all **2,313 strain-specific genome-
   - **Phenotype Phase Plane** — the growth surface over two uptake capacities, as a contour landscape.
   - **Essentiality Screen** — single-reaction knockout scan classifying every reaction (essential / severe / mild / dispensable).
   - **Multi-model analytics** — run FBA across many strains → growth by phylogroup, an interactive flux **scatter**, a **PCA** of exchange-flux profiles, and a heatmap (all clickable, Plotly).
-  - **Cohort comparison** — define two groups by metadata (phylogroup, MLST, pathotype, isolation source, host…) and test which metabolic traits differ, with Mann–Whitney U + Benjamini–Hochberg FDR and a differential-flux volcano plot.
+  - **Group comparison** — define two groups by metadata (phylogroup, MLST, pathotype, isolation source, host…) and test which metabolic traits differ, with Mann–Whitney U + Benjamini–Hochberg FDR and a differential-flux volcano plot.
 
   Media presets: M9 ± O₂ and the HMDB-derived **Feces / Urine / Serum** formulations from S3–S5 Tables of Ardalani *et al.* (PLOS Pathogens `ppat.1013775`). All results — growth rates, pFBA sums, knockouts, FVA/envelope/phase-plane values and the cohort statistics — reproduce COBRApy / scipy to full precision.
 

@@ -77,7 +77,7 @@ const TAB_META = {
   phaseplane: ['Phenotype Phase Plane', 'The growth surface over two uptake capacities.'],
   essential: ['Essentiality Screen', 'Single-reaction knockout scan across the network.'],
   multi: ['Multi-model analytics', 'FBA across many strains — scatter, PCA and heatmaps.'],
-  cohort: ['Cohort comparison', 'Test which metabolic traits differ between metadata-defined groups.'],
+  cohort: ['Group comparison', 'Test which metabolic traits differ between metadata-defined groups.'],
 };
 function switchTab(tab) {
   if (!TAB_META[tab]) tab = 'home';
@@ -539,8 +539,8 @@ function renderCohort(R) {
   const gTest = mannWhitneyU(gA, gB);
   $('cohort-results').style.display = 'block';
   $('cohort-kpis').innerHTML =
-    `<div class="fba-kpi"><div class="v" style="color:#2c6fbb">${A.length}</div><div class="l">Cohort A models</div></div>
-     <div class="fba-kpi"><div class="v" style="color:#c0392b">${B.length}</div><div class="l">Cohort B models</div></div>
+    `<div class="fba-kpi"><div class="v" style="color:#2c6fbb">${A.length}</div><div class="l">Group A models</div></div>
+     <div class="fba-kpi"><div class="v" style="color:#c0392b">${B.length}</div><div class="l">Group B models</div></div>
      <div class="fba-kpi"><div class="v">${fmt(meanA)} / ${fmt(meanB)}</div><div class="l">Mean growth A / B</div></div>
      <div class="fba-kpi"><div class="v" style="color:${gTest.p < 0.05 ? '#1a7f4b' : '#666'}">${gTest.p < 1e-4 ? gTest.p.toExponential(1) : gTest.p.toFixed(3)}</div><div class="l">Growth MWU p-value</div></div>`;
 
@@ -602,7 +602,7 @@ function renderCohortPCA(rows) {
   const pc = (rank) => { const [lam, idx] = order[rank]; const sq = Math.sqrt(Math.max(0, lam)); return { s: vectors.map(row => row[idx] * sq), ev: Math.max(0, lam) / tot }; };
   const p1 = pc(0), p2 = pc(1);
   const grp = (g, color, name) => { const idxs = rows.map((r, i) => [r, i]).filter(([r]) => r.grp === g).map(([, i]) => i); return { type: 'scatter', mode: 'markers', name, x: idxs.map(i => p1.s[i]), y: idxs.map(i => p2.s[i]), text: idxs.map(i => rows[i].meta.genome_name || rows[i].file), customdata: idxs.map(i => rows[i].file), marker: { color, size: 9, line: { color: '#fff', width: 0.5 } }, hovertemplate: '%{text}<extra>' + name + '</extra>' }; };
-  window.Plotly.newPlot('cohort-plot-pca', [grp('A', '#2c6fbb', 'Cohort A'), grp('B', '#c0392b', 'Cohort B')],
+  window.Plotly.newPlot('cohort-plot-pca', [grp('A', '#2c6fbb', 'Group A'), grp('B', '#c0392b', 'Group B')],
     { margin: { l: 45, r: 10, t: 10, b: 40 }, height: 340, xaxis: { title: `PC1 (${(p1.ev * 100).toFixed(0)}%)` }, yaxis: { title: `PC2 (${(p2.ev * 100).toFixed(0)}%)` }, legend: { font: { size: 9 } }, font: { size: 11 } }, { responsive: true, displaylogo: false });
 }
 function renderCohortTable(diff) {
