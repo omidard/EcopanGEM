@@ -59,14 +59,19 @@ export function search(list, q, filt = {}, limit = 60) {
 
   if (!query) return out.slice(0, limit);
 
+  /* Match every word, not one contiguous string. Media names carry punctuation
+     ("MRS (de Man, Rogosa, Sharpe) medium"), so a typed "MRS de Man" would never
+     be a substring of it. */
+  const terms = query.split(/\s+/).filter(Boolean);
   const scored = [];
   for (const m of out) {
-    if (!m._hay.includes(query)) continue;
+    if (!terms.every(t => m._hay.includes(t))) continue;
     const name = (m.name || '').toLowerCase();
-    let s = 3;
+    let s = 4;
     if (m.id === query) s = 0;
-    else if (name.startsWith(query)) s = 1;
-    else if (name.includes(query)) s = 2;
+    else if (name === query) s = 1;
+    else if (name.startsWith(terms[0])) s = 2;
+    else if (name.includes(query)) s = 3;
     scored.push([s, m]);
     if (scored.length > 4000) break;             // the catalog is large; do not scan forever
   }

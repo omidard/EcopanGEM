@@ -33,7 +33,10 @@ const collOf = (m) => COLLECTION[m && m.dataset] || { key: 'other', short: '', t
    growth on arrival and read as a broken tool, so each collection gets a
    default medium that suits its organism. */
 const MINIMAL = new Set(['M9_glucose_aerobic', 'M9_glucose_anaerobic']);
-const DEFAULT_MEDIUM = { EcopanGEM: 'M9_glucose_aerobic', LactoPanGEM: 'MRS' };
+/* CDM (Ardalani et al., mSystems 2024, Table 2) is a chemically defined medium
+   built for this family: 16 of 16 LactoPanGEM strains tested grow on it, against
+   5 of 10 on MRS or BHI and 0 of 10 on M9. It is the right default here. */
+const DEFAULT_MEDIUM = { EcopanGEM: 'M9_glucose_aerobic', LactoPanGEM: 'CDM' };
 const organismOf = (m) => m.gtdb_species || m.organism || m.genome_name || m.strain || '';
 
 // ── Media presets ─────────────────────────────────────────────────────────────

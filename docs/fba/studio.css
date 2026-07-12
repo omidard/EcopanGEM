@@ -778,3 +778,8 @@ footer { text-align: center; padding: 1.8rem; color: var(--mute); font-size: .78
 
 .fba-loopless { margin-left: .3rem; padding-left: .6rem; border-left: 1px solid var(--line-2); cursor: help; }
 .fba-loopless input { accent-color: var(--accent); }
+
+/* shared media picker, mounted on every analysis */
+.media-mount { margin-top: 6px; }
+.media-mount .media-browse { margin-bottom: 2px; }
+.media-mount .media-report { margin-top: 5px; }

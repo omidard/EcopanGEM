@@ -4,6 +4,8 @@ import { runFBA, runPFBA, runFVA, runDFBA, productionEnvelope, phasePlane, essen
          singleGeneDeletion, doubleDeletion, fseof, sampleFluxes, findBlockedReactions, modelQC, listGenes } from './fba_engine.js';
 
 // Glucose is spelled differently across BiGG generations. Pick whichever this model has.
+import { mountMediaPicker, rebind as rebindMedia, adoptDefaultMedium, presets as mediaPresets } from './media_ui.js';
+
 const GLC = ['EX_glc__D_e', 'EX_glc_D_e', 'EX_glc_e'];
 const pickGlc = (ids) => GLC.find(g => ids.includes(g)) || null;
 
@@ -33,6 +35,20 @@ function mediaFor(model, key) {
   if (!model || !p) return (p ? p.bounds : {});
   const comps = Object.entries(p.bounds).map(([exchange, lower_bound]) => ({ exchange, lower_bound }));
   return bindMedium(model, comps).bounds;
+}
+
+/* The medium a tab currently has selected, already bound to its model. Falls back
+   to the preset dropdown if the picker has not mounted yet. */
+function mediaOf(state, selId) {
+  if (state.mediaBounds && Object.keys(state.mediaBounds).length) return state.mediaBounds;
+  return mediaFor(state.model, $(selId).value);
+}
+
+/* Mount the shared picker on a tab and keep it bound as the model changes. */
+function attachMedia(selId, state) {
+  mountMediaPicker($(selId), state);
+  const orig = state.onModelLoaded;
+  state.onModelLoaded = () => { adoptDefaultMedium(state, $(selId)); if (orig) orig(); };
 }
 
 const metaByFile = new Map();
@@ -158,6 +174,7 @@ function decorateStaticPlots() {
 const fvaState = { model: null, file: null };
 function initFVA() {
   fillMedia($('fva-media'), $('fva-media-desc'));
+  attachMedia('fva-media', fvaState);
   makeCombo($('fva-model-input'), $('fva-model-menu'), async (gemFile) => {
     $('fva-model-input').value = '';
     const mc = $('fva-modelcard'); mc.style.display = 'block'; mc.innerHTML = '<span class="fba-hint-inline">Loading…</span>';
@@ -169,7 +186,7 @@ function initFVA() {
 }
 async function runFVAtab() {
   if (!fvaState.model) return setStatus('fva-status', 'Choose a model first.', 'err');
-  const media = mediaFor(fvaState.model, $('fva-media').value);
+  const media = mediaOf(fvaState, 'fva-media');
   const fraction = +$('fva-frac').value;
   const exIds = listExchanges(fvaState.model).map(e => e.id);
   $('fva-run').disabled = true; $('fva-results').style.display = 'none';
@@ -218,6 +235,7 @@ function renderFVA(res, model) {
 const dfbaState = { model: null, file: null, series: null };
 function initDFBA() {
   fillMedia($('dfba-media'), null);
+  attachMedia('dfba-media', dfbaState);
   makeCombo($('dfba-model-input'), $('dfba-model-menu'), async (gemFile) => {
     $('dfba-model-input').value = '';
     const mc = $('dfba-modelcard'); mc.style.display = 'block'; mc.innerHTML = '<span class="fba-hint-inline">Loading…</span>';
@@ -235,7 +253,7 @@ function initDFBA() {
 }
 async function runDFBAtab() {
   if (!dfbaState.model) return setStatus('dfba-status', 'Choose a model first.', 'err');
-  const media = mediaFor(dfbaState.model, $('dfba-media').value);
+  const media = mediaOf(dfbaState, 'dfba-media');
   const substrateEx = $('dfba-substrate').value;
   const opts = {
     substrateEx, substrate0: +$('dfba-s0').value, biomass0: +$('dfba-x0').value,
@@ -284,8 +302,10 @@ function renderDFBA(s, substrateEx, model) {
 
 // ── Multi-model tab ────────────────────────────────────────────────────────────
 const mm = { selected: [], results: null };
+const mmState = { mediaSpec: null, openMinerals: false };
 function initMulti() {
   fillMedia($('mm-media'), $('mm-media-desc'));
+  mountMediaPicker($('mm-media'), mmState);
   makeCombo($('mm-model-input'), $('mm-model-menu'), (gemFile) => { addModel(gemFile); $('mm-model-input').value = ''; });
   document.querySelectorAll('.mm-quick button[data-add]').forEach(b => b.addEventListener('click', () => quickAdd(b.dataset.add)));
   $('mm-clear').addEventListener('click', () => { mm.selected = []; renderChips(); });
@@ -310,7 +330,7 @@ function renderChips() {
 }
 async function runMulti() {
   if (mm.selected.length < 2) return setStatus('mm-status', 'Add at least 2 models.', 'err');
-  const mmMediaKey = $('mm-media').value;   // bound per model inside the loop
+  const mmSpec = mmState.mediaSpec;   // may be a preset or any Media DB record; bound per model
   const meth = document.querySelector('input[name="mm-method"]:checked').value;
   $('mm-run').disabled = true; $('mm-results').style.display = 'none';
   setStatus('mm-status', `Running ${meth.toUpperCase()} on ${mm.selected.length} models…`, 'busy'); prog('mm-prog', 'mm-prog-bar', 0);
@@ -321,7 +341,7 @@ async function runMulti() {
       const f = mm.selected[i];
       try {
         const model = await loadModel(f);
-        const media = mediaFor(model, mmMediaKey);   // per model: the two pangenomes spell exchanges differently
+        const media = bindMedium(model, mmSpec.components, { openMinerals: mmState.openMinerals }).bounds;
         const fba = await runFBA(model, media);
         let res = fba;
         if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) res = await runPFBA(model, media, fba);
@@ -498,10 +518,12 @@ function benjaminiHochberg(ps) {
 // ── Cohort comparison tab ──────────────────────────────────────────────────────
 const COHORT_FIELDS = [['phylogroup', 'Phylogroup'], ['MLST', 'MLST (ST)'], ['pathovar', 'Pathotype'], ['isolation_source', 'Isolation source'], ['host_name', 'Host'], ['isolation_country', 'Country'], ['mash_cluster', 'MASH cluster'], ['serovar', 'Serovar'], ['oxygen_requirement', 'Oxygen requirement'], ['disease', 'Disease']];
 const cohort = { a: { field: 'phylogroup', values: new Set() }, b: { field: 'phylogroup', values: new Set(), complement: false }, results: null };
+const cohortState = { mediaSpec: null, openMinerals: false };
 const clean = (v) => { const s = String(v == null ? '' : v).trim(); return (s === '' || s === 'nan' || s === 'None' || s === '-1') ? '' : s; };
 
 function initCohort() {
   fillMedia($('cohort-media'), null);
+  mountMediaPicker($('cohort-media'), cohortState);
   ['a', 'b'].forEach(c => setupCohortBuilder(c));
   $('cohort-b-complement').addEventListener('change', () => { $('cohort-b-manual').style.display = $('cohort-b-complement').checked ? 'none' : 'block'; updateCohortCount('b'); });
   $('cohort-run').addEventListener('click', runCohort);
@@ -544,7 +566,7 @@ async function runCohort() {
   const aFiles = cohortFiles('a'), bFiles = cohortFiles('b');
   if (aFiles.length < 3 || bFiles.length < 3) return setStatus('cohort-status', 'Each cohort needs ≥3 GEMs. Broaden your selection.', 'err');
   const cap = Math.max(3, Math.min(80, +$('cohort-cap').value || 25));
-  const cohortMediaKey = $('cohort-media').value;   // bound per model inside the loop
+  const cohortSpec = cohortState.mediaSpec;   // bound per model inside the loop
   const meth = document.querySelector('input[name="cohort-method"]:checked').value;
   const sampA = sample(aFiles, cap), sampB = sample(bFiles, cap);
   const overlap = new Set(sampA).size + new Set(sampB).size - new Set([...sampA, ...sampB]).size;
@@ -556,7 +578,7 @@ async function runCohort() {
     const rows = [];
     for (let i = 0; i < jobs.length; i++) {
       const [grp, f] = jobs[i];
-      try { const model = await loadModel(f); const media = mediaFor(model, cohortMediaKey); const fba = await runFBA(model, media); let res = fba; if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) res = await runPFBA(model, media, fba); const ex = {}; for (const [id, v] of Object.entries(res.fluxes)) if (id.startsWith('EX_') && Math.abs(v) > 1e-6) ex[id] = v; rows.push({ grp, file: f, meta: meta(f), growth: fba.optimal ? fba.growth : 0, ex }); }
+      try { const model = await loadModel(f); const media = bindMedium(model, cohortSpec.components, { openMinerals: cohortState.openMinerals }).bounds; const fba = await runFBA(model, media); let res = fba; if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) res = await runPFBA(model, media, fba); const ex = {}; for (const [id, v] of Object.entries(res.fluxes)) if (id.startsWith('EX_') && Math.abs(v) > 1e-6) ex[id] = v; rows.push({ grp, file: f, meta: meta(f), growth: fba.optimal ? fba.growth : 0, ex }); }
       catch (e) { rows.push({ grp, file: f, meta: meta(f), growth: 0, ex: {} }); }
       prog('cohort-prog', 'cohort-prog-bar', (i + 1) / jobs.length); setStatus('cohort-status', `Solved ${i + 1}/${jobs.length}…`, 'busy');
     }
@@ -663,7 +685,13 @@ function wireModelPicker(inputId, menuId, cardId, state, onLoad) {
   makeCombo($(inputId), $(menuId), async (gemFile) => {
     $(inputId).value = '';
     const mc = $(cardId); mc.style.display = 'block'; mc.innerHTML = '<span class="fba-hint-inline">Loading…</span>';
-    try { const model = await loadModel(gemFile); state.model = model; state.file = gemFile; mc.innerHTML = modelCardHTML(gemFile, model); if (onLoad) onLoad(model); }
+    try {
+      const model = await loadModel(gemFile);
+      state.model = model; state.file = gemFile; state.meta = meta(gemFile);
+      mc.innerHTML = modelCardHTML(gemFile, model);
+      if (state.onModelLoaded) state.onModelLoaded();   // rebind the medium to THIS model
+      if (onLoad) onLoad(model);
+    }
     catch (e) { mc.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
   });
 }
@@ -672,6 +700,7 @@ function wireModelPicker(inputId, menuId, cardId, state, onLoad) {
 const envState = { model: null, file: null };
 function initEnvelope() {
   fillMedia($('env-media'), null);
+  attachMedia('env-media', envState);
   wireModelPicker('env-model-input', 'env-model-menu', 'env-modelcard', envState, (model) => {
     const exs = listExchanges(model), has = id => exs.some(e => e.id === id);
     const pri = ['EX_ac_e', 'EX_etoh_e', 'EX_lac__D_e', 'EX_succ_e', 'EX_for_e', 'EX_ala__L_e', 'EX_pyr_e', 'EX_akg_e', 'EX_co2_e', 'EX_h2_e'].filter(has);
@@ -683,7 +712,7 @@ function initEnvelope() {
 }
 async function runEnvelope() {
   if (!envState.model) return setStatus('env-status', 'Choose a model first.', 'err');
-  const media = mediaFor(envState.model, $('env-media').value), product = $('env-product').value;
+  const media = mediaOf(envState, 'env-media'), product = $('env-product').value;
   $('env-run').disabled = true; $('env-results').style.display = 'none';
   setStatus('env-status', 'Computing envelope…', 'busy'); prog('env-prog', 'env-prog-bar', 0);
   try {
@@ -712,6 +741,7 @@ async function runEnvelope() {
 const ppState = { model: null, file: null };
 function initPhasePlane() {
   fillMedia($('pp-media'), null);
+  attachMedia('pp-media', ppState);
   wireModelPicker('pp-model-input', 'pp-model-menu', 'pp-modelcard', ppState, (model) => {
     const exs = listExchanges(model), opts = exs.map(e => `<option value="${e.id}">${bio(e.id)} (${e.id})</option>`).join('');
     $('pp-x').innerHTML = opts; $('pp-y').innerHTML = opts;
@@ -723,7 +753,7 @@ function initPhasePlane() {
 }
 async function runPP() {
   if (!ppState.model) return setStatus('pp-status', 'Choose a model first.', 'err');
-  const media = mediaFor(ppState.model, $('pp-media').value), xId = $('pp-x').value, yId = $('pp-y').value, n = Math.max(6, Math.min(40, +$('pp-n').value || 20));
+  const media = mediaOf(ppState, 'pp-media'), xId = $('pp-x').value, yId = $('pp-y').value, n = Math.max(6, Math.min(40, +$('pp-n').value || 20));
   if (xId === yId) return setStatus('pp-status', 'Choose two different axes.', 'err');
   $('pp-run').disabled = true; $('pp-results').style.display = 'none';
   setStatus('pp-status', `Solving ${n}×${n} grid…`, 'busy'); prog('pp-prog', 'pp-prog-bar', 0);
@@ -743,6 +773,7 @@ async function runPP() {
 const essState = { model: null, file: null };
 function initEssential() {
   fillMedia($('ess-media'), null);
+  attachMedia('ess-media', essState);
   wireModelPicker('ess-model-input', 'ess-model-menu', 'ess-modelcard', essState);
   $('ess-run').addEventListener('click', runEss);
 }
@@ -750,7 +781,7 @@ function essClass(ratio) { return ratio < 0.01 ? 'Essential' : ratio < 0.5 ? 'Se
 const ESS_COLORS = { Essential: '#c0392b', Severe: '#e08a1e', Mild: '#5b8ff9', Neutral: '#cfd8e3' };
 async function runEss() {
   if (!essState.model) return setStatus('ess-status', 'Choose a model first.', 'err');
-  const media = mediaFor(essState.model, $('ess-media').value), scope = $('ess-scope').value;
+  const media = mediaOf(essState, 'ess-media'), scope = $('ess-scope').value;
   const all = essState.model.reactions.map(r => r.id);
   const ids = scope === 'exchange' ? all.filter(id => id.startsWith('EX_')) : scope === 'metabolic' ? all.filter(id => !id.startsWith('EX_')) : all;
   $('ess-run').disabled = true; $('ess-results').style.display = 'none';
@@ -788,6 +819,7 @@ function renderEss(res, n) {
 // ── init ──────────────────────────────────────────────────────────────────────
 async function init() {
   await presets();
+  await mediaPresets();      // the shared picker keeps its own copy; load it before mounting
   initNav(); initFVA(); initDFBA(); initMulti(); initCohort(); initEnvelope(); initPhasePlane(); initEssential();
   initGenes(); initSyn(); initFseof(); initSamp(); initQC();
   wireDownloads(); decorateStaticPlots();
@@ -805,6 +837,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 const genesState = { model: null, file: null, res: null };
 function initGenes() {
   fillMedia($('genes-media'), $('genes-media-desc'));
+  attachMedia('genes-media', genesState);
   wireModelPicker('genes-model-input', 'genes-model-menu', 'genes-modelcard', genesState);
   $('genes-run').addEventListener('click', runGenes);
 }
@@ -813,7 +846,7 @@ const CLS_COL = { Essential: '#c0392b', Severe: '#e08a1e', Mild: '#5b8ff9', Disp
 
 async function runGenes() {
   if (!genesState.model) return setStatus('genes-status', 'Choose a model first.', 'err');
-  const media = mediaFor(genesState.model, $('genes-media').value);
+  const media = mediaOf(genesState, 'genes-media');
   const cap = +$('genes-scope').value;
   const all = listGenes(genesState.model).map(g => g.id);
   const genes = cap ? all.slice(0, cap) : all;
@@ -873,6 +906,7 @@ function renderGenes(res) {
 const synState = { model: null, file: null, res: null };
 function initSyn() {
   fillMedia($('syn-media'), $('syn-media-desc'));
+  attachMedia('syn-media', synState);
   wireModelPicker('syn-model-input', 'syn-model-menu', 'syn-modelcard', synState);
   $('syn-run').addEventListener('click', runSyn);
 }
@@ -951,6 +985,7 @@ function renderSyn(res) {
 const fseofState = { model: null, file: null, res: null };
 function initFseof() {
   fillMedia($('fseof-media'), $('fseof-media-desc'));
+  attachMedia('fseof-media', fseofState);
   wireModelPicker('fseof-model-input', 'fseof-model-menu', 'fseof-modelcard', fseofState, (model) => {
     const sel = $('fseof-product'); sel.innerHTML = '';
     listExchanges(model).forEach(e => {
@@ -967,7 +1002,7 @@ function initFseof() {
 
 async function runFseof() {
   if (!fseofState.model) return setStatus('fseof-status', 'Choose a model first.', 'err');
-  const media = mediaFor(fseofState.model, $('fseof-media').value);
+  const media = mediaOf(fseofState, 'fseof-media');
   const product = $('fseof-product').value;
   const steps = Math.max(4, Math.min(20, +$('fseof-steps').value || 10));
   const btn = $('fseof-run'); btn.disabled = true;
@@ -1023,13 +1058,14 @@ function renderFseof(res) {
 const sampState = { model: null, file: null, res: null };
 function initSamp() {
   fillMedia($('samp-media'), $('samp-media-desc'));
+  attachMedia('samp-media', sampState);
   wireModelPicker('samp-model-input', 'samp-model-menu', 'samp-modelcard', sampState);
   $('samp-run').addEventListener('click', runSamp);
 }
 
 async function runSamp() {
   if (!sampState.model) return setStatus('samp-status', 'Choose a model first.', 'err');
-  const media = mediaFor(sampState.model, $('samp-media').value);
+  const media = mediaOf(sampState, 'samp-media');
   const n = +$('samp-n').value, frac = +$('samp-frac').value;
   const btn = $('samp-run'); btn.disabled = true;
   setStatus('samp-status', 'Building warm-up points, then walking the polytope…', 'busy');
@@ -1070,6 +1106,7 @@ function renderSamp(res) {
 const qcState = { model: null, file: null, res: null };
 function initQC() {
   fillMedia($('qc-media'), $('qc-media-desc'));
+  attachMedia('qc-media', qcState);
   wireModelPicker('qc-model-input', 'qc-model-menu', 'qc-modelcard', qcState);
   $('qc-run').addEventListener('click', runQC);
 }
