@@ -189,7 +189,7 @@ async function selectModel(cond, gemFile) {
     cond.card.querySelector('.fba-ko-input').disabled = false;
     updateMediaDesc(cond);
   } catch (e) {
-    mc.innerHTML = `<span style="color:#c0392b">${esc(e.message)}</span>`;
+    mc.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`;
   }
 }
 
@@ -349,7 +349,7 @@ function renderSingle(R) {
   box.innerHTML = `
     <hr>
     <div style="font-size:0.95rem;margin-bottom:0.4rem"><code>${esc(cond.modelFile)}</code> on <strong>${esc(S.presets[cond.mediaKey].label)}</strong>
-      <span class="fba-badge">${R.meth.toUpperCase()}</span> ${cond.knockouts.size ? `<span class="fba-badge" style="background:#c0392b">${cond.knockouts.size} KO</span>` : ''}</div>
+      <span class="fba-badge">${R.meth.toUpperCase()}</span> ${cond.knockouts.size ? `<span class="fba-badge" style="background:var(--bad)">${cond.knockouts.size} KO</span>` : ''}</div>
     <div class="fba-kpis">
       ${kpi(infeasible ? '0' : fmt(growth), 'Growth rate (h⁻¹)', infeasible ? '#c0392b' : '#1a7f4b')}
       ${kpi(infeasible ? 'NO GROWTH' : 'FEASIBLE', 'Status', infeasible ? '#c0392b' : '#1a7f4b')}
@@ -358,7 +358,7 @@ function renderSingle(R) {
       ${kpi(R.result.pfba ? fmt(R.result.totalFlux, 0) : '—', 'Total flux Σ|v| (pFBA)')}
     </div>`;
   if (infeasible) {
-    box.insertAdjacentHTML('beforeend', `<div class="fba-note" style="color:#c0392b">No biomass on this medium/knockout set (growth ≈ 0). Try a richer medium or remove knockouts.</div>`);
+    box.insertAdjacentHTML('beforeend', `<div class="fba-note" style="color:var(--bad)">No biomass on this medium/knockout set (growth ≈ 0). Try a richer medium or remove knockouts.</div>`);
     return;
   }
   box.insertAdjacentHTML('beforeend', `
@@ -367,8 +367,8 @@ function renderSingle(R) {
       <div class="fba-chart-card"><h6>Top secreted end products<button class="viz-dl" data-plot="ch-sec" data-type="chartjs" style="float:right">⬇</button></h6><div class="fba-chart-box"><canvas id="ch-sec"></canvas></div></div>
       <div class="fba-chart-card"><h6>Top nutrient uptakes<button class="viz-dl" data-plot="ch-up" data-type="chartjs" style="float:right">⬇</button></h6><div class="fba-chart-box"><canvas id="ch-up"></canvas></div></div>
     </div>
-    <div class="fba-map-wrap"><h6 style="font-size:0.85rem;font-weight:700;color:#444;margin-bottom:0.4rem">Metabolic flux map<button class="viz-dl" data-plot="ch-map" data-type="escher" style="float:right">⬇ SVG</button></h6>
-      <div id="ch-map" style="width:100%;height:560px;border:1px solid #e5e8ec;border-radius:8px;background:#fff;overflow:hidden"></div>
+    <div class="fba-map-wrap"><h6 style="font-size:0.85rem;font-weight:700;color:var(--ink);margin-bottom:0.4rem">Metabolic flux map<button class="viz-dl" data-plot="ch-map" data-type="escher" style="float:right">⬇ SVG</button></h6>
+      <div id="ch-map" style="width:100%;height:560px;border:1px solid var(--canvas-line);border-radius:8px;background:#fff;overflow:hidden"></div>
       <div class="fba-map-note" id="ch-map-note"></div></div>
     <div id="ch-tables" style="margin-top:1.2rem"></div>`);
 
@@ -382,7 +382,7 @@ function renderSingle(R) {
 }
 
 function singleTables(cond, R, rep) {
-  const rows = (arr, s) => arr.map(x => `<tr><td><code>${esc(x.id)}</code></td><td>${esc(x.name || '')}</td><td class="num" style="color:${s > 0 ? '#c0392b' : '#2c6fbb'}">${fmt(x.flux)}</td></tr>`).join('');
+  const rows = (arr, s) => arr.map(x => `<tr><td><code>${esc(x.id)}</code></td><td>${esc(x.name || '')}</td><td class="num" style="color:${s > 0 ? 'var(--bad)' : 'var(--primary)'}">${fmt(x.flux)}</td></tr>`).join('');
   $('ch-tables').innerHTML = `
     <div class="fba-two">
       <div><h6>Uptake (${rep.uptake.length})</h6><div class="fba-tablewrap"><table class="fba-flux"><thead><tr><th>Exchange</th><th>Name</th><th>Flux</th></tr></thead><tbody>${rows(rep.uptake, -1)}</tbody></table></div></div>
@@ -403,7 +403,7 @@ function renderCompare(RA, RB) {
     <hr>
     <div class="fba-cmp-heads">
       <div><span class="fba-cond-badge">A</span> <code>${esc(RA.cond.modelFile)}</code> — ${esc(condLabel(RA.cond))}</div>
-      <div><span class="fba-cond-badge" style="background:#c0392b">B</span> <code>${esc(RB.cond.modelFile)}</code> — ${esc(condLabel(RB.cond))}</div>
+      <div><span class="fba-cond-badge" style="background:var(--bad)">B</span> <code>${esc(RB.cond.modelFile)}</code> — ${esc(condLabel(RB.cond))}</div>
     </div>
     <div class="fba-kpis">
       ${kpi(infA ? '0' : fmt(gA), 'Growth A (h⁻¹)', '#2c6fbb')}
@@ -416,10 +416,10 @@ function renderCompare(RA, RB) {
       <div class="fba-chart-card"><h6>Secreted end products: A vs B</h6><div class="fba-chart-box"><canvas id="cc-sec"></canvas></div></div>
     </div>
     <div class="fba-two" style="margin-top:0.4rem">
-      <div class="fba-map-wrap"><h6 style="font-size:0.82rem;font-weight:700;color:#2c6fbb">Flux map — Condition A</h6>
-        <div id="cc-map-a" style="width:100%;height:460px;border:1px solid #e5e8ec;border-radius:8px;background:#fff;overflow:hidden"></div></div>
-      <div class="fba-map-wrap"><h6 style="font-size:0.82rem;font-weight:700;color:#c0392b">Flux map — Condition B</h6>
-        <div id="cc-map-b" style="width:100%;height:460px;border:1px solid #e5e8ec;border-radius:8px;background:#fff;overflow:hidden"></div></div>
+      <div class="fba-map-wrap"><h6 style="font-size:0.82rem;font-weight:700;color:var(--primary)">Flux map — Condition A</h6>
+        <div id="cc-map-a" style="width:100%;height:460px;border:1px solid var(--canvas-line);border-radius:8px;background:#fff;overflow:hidden"></div></div>
+      <div class="fba-map-wrap"><h6 style="font-size:0.82rem;font-weight:700;color:var(--bad)">Flux map — Condition B</h6>
+        <div id="cc-map-b" style="width:100%;height:460px;border:1px solid var(--canvas-line);border-radius:8px;background:#fff;overflow:hidden"></div></div>
     </div>
     <div class="fba-map-note">Each map is coloured by its own condition's |flux|. Reactions outside the e_coli_core central-metabolism map are not shown.</div>
     <div id="cc-diff" style="margin-top:1.2rem"></div>`;
@@ -448,7 +448,7 @@ function diffTable(RA, RB, fA, fB) {
   $('cc-diff').innerHTML = `
     <h6>Largest flux differences (B − A) <span class="fba-hint-inline">${rows.length} reactions differ; top ${top.length} shown</span></h6>
     <div class="fba-tablewrap" style="max-height:360px"><table class="fba-flux"><thead><tr><th>Reaction</th><th>Name</th><th>Flux A</th><th>Flux B</th><th>Δ (B−A)</th></tr></thead>
-      <tbody>${top.map(r => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.name)}</td><td class="num">${fmt(r.a, 3)}</td><td class="num">${fmt(r.b, 3)}</td><td class="num" style="color:${r.d >= 0 ? '#1a7f4b' : '#c0392b'}">${(r.d >= 0 ? '+' : '') + fmt(r.d, 3)}</td></tr>`).join('')}</tbody></table></div>
+      <tbody>${top.map(r => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.name)}</td><td class="num">${fmt(r.a, 3)}</td><td class="num">${fmt(r.b, 3)}</td><td class="num" style="color:${r.d >= 0 ? 'var(--ok)' : 'var(--bad)'}">${(r.d >= 0 ? '+' : '') + fmt(r.d, 3)}</td></tr>`).join('')}</tbody></table></div>
     <button class="btn btn-sm btn-outline-secondary mt-2" id="cc-csv">⬇ Download flux comparison (CSV)</button>`;
   $('cc-csv').addEventListener('click', () => {
     let csv = 'reaction_id,name,flux_A,flux_B,delta_B_minus_A\n';

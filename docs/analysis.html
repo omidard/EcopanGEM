@@ -5,39 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flux Analysis Studio — EcopanGEM</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="fba/studio.css">
+<script>
+  /* set the theme before first paint, so there is no flash of the wrong one */
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('studio-theme'); } catch (e) {}
+    document.documentElement.setAttribute('data-theme', (t === 'light' || t === 'dark') ? t : 'dark');
+  })();
+</script>
 </head>
 <body>
 
 <div class="studio-layout">
   <aside class="sidebar" id="sidebar">
     <a class="sidebar-brand" href="index.html">
-      <span class="brand-mark">⚗️</span>
+      <span class="brand-mark"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.4L5.3 18a2 2 0 0 0 1.7 3h10a2 2 0 0 0 1.7-3L14 9.4V3"/><path d="M7.6 15h8.8"/></svg></span>
       <span class="brand-txt"><b>Flux Studio</b><small>← EcopanGEM Browser</small></span>
     </a>
     <nav class="sidebar-nav" id="studio-nav">
-      <button class="nav-item active" data-tab="home"><span class="ni">🏠</span> Home</button>
+      <button class="nav-item active" data-tab="home"><span class="ni"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.2 9.4V20a1 1 0 0 0 1 1H10v-6h4v6h3.8a1 1 0 0 0 1-1V9.4"/></svg></span> Home</button>
       <div class="nav-group">Simulate</div>
-      <button class="nav-item" data-tab="explore"><span class="ni">🧪</span> Explore &amp; Compare</button>
-      <button class="nav-item" data-tab="dfba"><span class="ni">⏱️</span> Dynamic FBA</button>
+      <button class="nav-item" data-tab="explore"><span class="ni"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.4L5.3 18a2 2 0 0 0 1.7 3h10a2 2 0 0 0 1.7-3L14 9.4V3"/><path d="M7.6 15h8.8"/></svg></span> Explore &amp; Compare</button>
+      <button class="nav-item" data-tab="dfba"><span class="ni"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.4 2"/></svg></span> Dynamic FBA</button>
       <div class="nav-group">Explore the solution space</div>
-      <button class="nav-item" data-tab="fva"><span class="ni">📊</span> Flux Variability</button>
-      <button class="nav-item" data-tab="envelope"><span class="ni">📈</span> Production Envelope</button>
-      <button class="nav-item" data-tab="phaseplane"><span class="ni">🗺️</span> Phenotype Phase Plane</button>
+      <button class="nav-item" data-tab="fva"><span class="ni"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M6.5 18v-8M12 18V4M17.5 18v-5"/></svg></span> Flux Variability</button>
+      <button class="nav-item" data-tab="envelope"><span class="ni"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17.5 9.5 11l4 4L21 7.5"/><path d="M15.2 7.5H21v5.8"/></svg></span> Production Envelope</button>
+      <button class="nav-item" data-tab="phaseplane"><span class="ni"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></span> Phenotype Phase Plane</button>
       <div class="nav-group">Screen &amp; design</div>
-      <button class="nav-item" data-tab="essential"><span class="ni">🎯</span> Essentiality Screen</button>
+      <button class="nav-item" data-tab="essential"><span class="ni"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.8"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></span> Essentiality Screen</button>
       <div class="nav-group">Populations</div>
-      <button class="nav-item" data-tab="multi"><span class="ni">🌐</span> Multi-model</button>
-      <button class="nav-item" data-tab="cohort"><span class="ni">⚖️</span> Group comparison</button>
+      <button class="nav-item" data-tab="multi"><span class="ni"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.2 12h17.6"/><path d="M12 3a13.5 13.5 0 0 1 0 18 13.5 13.5 0 0 1 0-18Z"/></svg></span> Multi-model</button>
+      <button class="nav-item" data-tab="cohort"><span class="ni"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v17"/><path d="M5.5 7.2h13"/><path d="M7 7.2 4 14h6L7 7.2Z"/><path d="M17 7.2 14 14h6l-3-6.8Z"/><path d="M8.5 20.5h7"/></svg></span> Group comparison</button>
     </nav>
     <div class="sidebar-foot">100% in-browser<br>glpk.js · Escher · Plotly</div>
   </aside>
 
   <main class="studio-main">
     <div class="topbar">
-      <button class="menu-toggle" id="menu-toggle" aria-label="menu">☰</button>
+      <button class="menu-toggle" id="menu-toggle" aria-label="Open navigation"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <div><h1 id="page-title">Flux Analysis Studio</h1>
       <p id="page-sub">A constraint-based modelling workbench for 2,313 <em>E. coli</em> strain GEMs — everything runs in your browser.</p></div>
+      <button class="studio-theme" id="studio-theme" type="button" aria-label="Switch to light theme" aria-pressed="false">
+        <svg class="i-moon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+      </button>
     </div>
 
   <!-- ── HOME / tool gallery ───────────────────────────────────────────────── -->
@@ -47,14 +62,14 @@
       <p>Genome-scale metabolic models for every strain, solved live in your browser with a WebAssembly LP solver. Choose an analysis below.</p>
     </div>
     <div class="tool-gallery" id="tool-gallery">
-      <button class="tool-card" data-tab="explore"><span class="tc-ic">🧪</span><b>Explore &amp; Compare</b><span>FBA / pFBA with editable media, knockouts &amp; a live Escher flux map. Compare two conditions side by side.</span></button>
-      <button class="tool-card" data-tab="dfba"><span class="tc-ic">⏱️</span><b>Dynamic FBA</b><span>Batch-culture time course — biomass growth, substrate depletion &amp; product accumulation.</span></button>
-      <button class="tool-card" data-tab="fva"><span class="tc-ic">📊</span><b>Flux Variability</b><span>Min/max flux of every exchange at a chosen fraction of optimal growth.</span></button>
-      <button class="tool-card" data-tab="envelope"><span class="tc-ic">📈</span><b>Production Envelope</b><span>The growth-vs-product trade-off for any secreted metabolite — the bioengineer's map.</span></button>
-      <button class="tool-card" data-tab="phaseplane"><span class="tc-ic">🗺️</span><b>Phenotype Phase Plane</b><span>Growth surface over two uptake rates — the classic 2-D phenotype landscape.</span></button>
-      <button class="tool-card" data-tab="essential"><span class="tc-ic">🎯</span><b>Essentiality Screen</b><span>Single-reaction knockout scan — find the essential, redundant &amp; dispensable reactions.</span></button>
-      <button class="tool-card" data-tab="multi"><span class="tc-ic">🌐</span><b>Multi-model analytics</b><span>Run FBA across many strains — growth, flux scatter, PCA &amp; heatmap, all clickable.</span></button>
-      <button class="tool-card" data-tab="cohort"><span class="tc-ic">⚖️</span><b>Group comparison</b><span>Define groups by metadata &amp; test which metabolic traits differ — with real statistics.</span></button>
+      <button class="tool-card" data-tab="explore"><span class="tc-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.4L5.3 18a2 2 0 0 0 1.7 3h10a2 2 0 0 0 1.7-3L14 9.4V3"/><path d="M7.6 15h8.8"/></svg></span><b>Explore &amp; Compare</b><span>FBA / pFBA with editable media, knockouts &amp; a live Escher flux map. Compare two conditions side by side.</span></button>
+      <button class="tool-card" data-tab="dfba"><span class="tc-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.4 2"/></svg></span><b>Dynamic FBA</b><span>Batch-culture time course — biomass growth, substrate depletion &amp; product accumulation.</span></button>
+      <button class="tool-card" data-tab="fva"><span class="tc-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M6.5 18v-8M12 18V4M17.5 18v-5"/></svg></span><b>Flux Variability</b><span>Min/max flux of every exchange at a chosen fraction of optimal growth.</span></button>
+      <button class="tool-card" data-tab="envelope"><span class="tc-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17.5 9.5 11l4 4L21 7.5"/><path d="M15.2 7.5H21v5.8"/></svg></span><b>Production Envelope</b><span>The growth-vs-product trade-off for any secreted metabolite — the bioengineer's map.</span></button>
+      <button class="tool-card" data-tab="phaseplane"><span class="tc-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></span><b>Phenotype Phase Plane</b><span>Growth surface over two uptake rates — the classic 2-D phenotype landscape.</span></button>
+      <button class="tool-card" data-tab="essential"><span class="tc-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.8"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></span><b>Essentiality Screen</b><span>Single-reaction knockout scan — find the essential, redundant &amp; dispensable reactions.</span></button>
+      <button class="tool-card" data-tab="multi"><span class="tc-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.2 12h17.6"/><path d="M12 3a13.5 13.5 0 0 1 0 18 13.5 13.5 0 0 1 0-18Z"/></svg></span><b>Multi-model analytics</b><span>Run FBA across many strains — growth, flux scatter, PCA &amp; heatmap, all clickable.</span></button>
+      <button class="tool-card" data-tab="cohort"><span class="tc-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v17"/><path d="M5.5 7.2h13"/><path d="M7 7.2 4 14h6L7 7.2Z"/><path d="M17 7.2 14 14h6l-3-6.8Z"/><path d="M8.5 20.5h7"/></svg></span><b>Group comparison</b><span>Define groups by metadata &amp; test which metabolic traits differ — with real statistics.</span></button>
     </div>
     <p class="home-note">All results and plots are downloadable. Verified against COBRApy &amp; scipy.</p>
   </div>
@@ -338,5 +353,22 @@ Promise.all([
 </script>
 <script type="module" src="fba/fba_ui.js"></script>
 <script type="module" src="fba/studio.js"></script>
+<script>
+  (function () {
+    var root = document.documentElement, btn = document.getElementById('studio-theme');
+    if (!btn) return;
+    function apply(mode) {
+      root.setAttribute('data-theme', mode);
+      btn.setAttribute('aria-label', 'Switch to ' + (mode === 'dark' ? 'light' : 'dark') + ' theme');
+      btn.setAttribute('aria-pressed', String(mode === 'light'));
+    }
+    apply(root.getAttribute('data-theme') || 'dark');
+    btn.addEventListener('click', function () {
+      var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      apply(next);
+      try { localStorage.setItem('studio-theme', next); } catch (e) {}
+    });
+  })();
+</script>
 </body>
 </html>

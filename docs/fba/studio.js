@@ -122,7 +122,7 @@ function initFVA() {
     $('fva-model-input').value = '';
     const mc = $('fva-modelcard'); mc.style.display = 'block'; mc.innerHTML = '<span class="fba-hint-inline">Loading…</span>';
     try { const model = await loadModel(gemFile); fvaState.model = model; fvaState.file = gemFile; mc.innerHTML = modelCardHTML(gemFile, model); }
-    catch (e) { mc.innerHTML = `<span style="color:#c0392b">${esc(e.message)}</span>`; }
+    catch (e) { mc.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
   });
   $('fva-frac').addEventListener('input', () => $('fva-frac-val').textContent = (+$('fva-frac').value).toFixed(2));
   $('fva-run').addEventListener('click', runFVAtab);
@@ -188,7 +188,7 @@ function initDFBA() {
       const exs = listExchanges(model).filter(e => /glc|glucose|fru|gal|lac|ac_e|succ|glyc|sucr|malt|xyl|arab/i.test(e.id));
       sub.innerHTML = exs.map(e => `<option value="${e.id}">${esc((e.name || e.id).replace(/ exchange$/i, ''))} (${e.id})</option>`).join('');
       if ([...sub.options].some(o => o.value === 'EX_glc__D_e')) sub.value = 'EX_glc__D_e'; else if (cur) sub.value = cur;
-    } catch (e) { mc.innerHTML = `<span style="color:#c0392b">${esc(e.message)}</span>`; }
+    } catch (e) { mc.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
   });
   $('dfba-run').addEventListener('click', runDFBAtab);
 }
@@ -539,10 +539,10 @@ function renderCohort(R) {
   const gTest = mannWhitneyU(gA, gB);
   $('cohort-results').style.display = 'block';
   $('cohort-kpis').innerHTML =
-    `<div class="fba-kpi"><div class="v" style="color:#2c6fbb">${A.length}</div><div class="l">Group A models</div></div>
-     <div class="fba-kpi"><div class="v" style="color:#c0392b">${B.length}</div><div class="l">Group B models</div></div>
+    `<div class="fba-kpi"><div class="v" style="color:var(--primary)">${A.length}</div><div class="l">Group A models</div></div>
+     <div class="fba-kpi"><div class="v" style="color:var(--bad)">${B.length}</div><div class="l">Group B models</div></div>
      <div class="fba-kpi"><div class="v">${fmt(meanA)} / ${fmt(meanB)}</div><div class="l">Mean growth A / B</div></div>
-     <div class="fba-kpi"><div class="v" style="color:${gTest.p < 0.05 ? '#1a7f4b' : '#666'}">${gTest.p < 1e-4 ? gTest.p.toExponential(1) : gTest.p.toFixed(3)}</div><div class="l">Growth MWU p-value</div></div>`;
+     <div class="fba-kpi"><div class="v" style="color:${gTest.p < 0.05 ? 'var(--ok)' : 'var(--mute)'}">${gTest.p < 1e-4 ? gTest.p.toExponential(1) : gTest.p.toFixed(3)}</div><div class="l">Growth MWU p-value</div></div>`;
 
   // growth box
   window.Plotly.newPlot('cohort-plot-growth', [
@@ -606,12 +606,12 @@ function renderCohortPCA(rows) {
     { margin: { l: 45, r: 10, t: 10, b: 40 }, height: 340, xaxis: { title: `PC1 (${(p1.ev * 100).toFixed(0)}%)` }, yaxis: { title: `PC2 (${(p2.ev * 100).toFixed(0)}%)` }, legend: { font: { size: 9 } }, font: { size: 11 } }, { responsive: true, displaylogo: false });
 }
 function renderCohortTable(diff) {
-  const rows = diff.slice(0, 40).map(d => `<tr><td><code>${esc(d.id)}</code></td><td>${esc(bio(d.id))}</td><td class="num">${fmt(d.meanA)}</td><td class="num">${fmt(d.meanB)}</td><td class="num" style="color:${d.delta >= 0 ? '#2c6fbb' : '#c0392b'}">${(d.delta >= 0 ? '+' : '') + fmt(d.delta)}</td><td class="num">${d.p < 1e-4 ? d.p.toExponential(1) : d.p.toFixed(4)}</td><td class="num" style="color:${d.q < 0.05 ? '#1a7f4b' : '#999'}">${d.q < 1e-4 ? d.q.toExponential(1) : d.q.toFixed(4)}</td></tr>`).join('');
+  const rows = diff.slice(0, 40).map(d => `<tr><td><code>${esc(d.id)}</code></td><td>${esc(bio(d.id))}</td><td class="num">${fmt(d.meanA)}</td><td class="num">${fmt(d.meanB)}</td><td class="num" style="color:${d.delta >= 0 ? 'var(--primary)' : 'var(--bad)'}">${(d.delta >= 0 ? '+' : '') + fmt(d.delta)}</td><td class="num">${d.p < 1e-4 ? d.p.toExponential(1) : d.p.toFixed(4)}</td><td class="num" style="color:${d.q < 0.05 ? 'var(--ok)' : 'var(--mute)'}">${d.q < 1e-4 ? d.q.toExponential(1) : d.q.toFixed(4)}</td></tr>`).join('');
   $('cohort-table').innerHTML = `<div class="fba-tablewrap" style="max-height:320px"><table class="fba-flux"><thead><tr><th>Exchange</th><th>Metabolite</th><th>Mean A</th><th>Mean B</th><th>Δ(A−B)</th><th>MWU p</th><th>BH q</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function showCohortDetail(exId) {
   const d = cohort.results && cohortDiffLookup(exId); if (!d) return;
-  $('cohort-detail').innerHTML = `<div class="fba-note" style="background:var(--accent)"><strong>${esc(bio(exId))}</strong> <code>${esc(exId)}</code> — mean flux A ${fmt(d.meanA)}, B ${fmt(d.meanB)}, Δ ${fmt(d.delta)} · MWU p ${d.p.toExponential(2)} · BH q ${d.q.toExponential(2)} ${d.q < 0.05 ? '<strong style="color:#1a7f4b">(significant)</strong>' : ''}</div>`;
+  $('cohort-detail').innerHTML = `<div class="fba-note" style="background:var(--accent)"><strong>${esc(bio(exId))}</strong> <code>${esc(exId)}</code> — mean flux A ${fmt(d.meanA)}, B ${fmt(d.meanB)}, Δ ${fmt(d.delta)} · MWU p ${d.p.toExponential(2)} · BH q ${d.q.toExponential(2)} ${d.q < 0.05 ? '<strong style="color:var(--ok)">(significant)</strong>' : ''}</div>`;
 }
 let _cohortDiff = null;
 function cohortDiffLookup(id) { return (_cohortDiff || []).find(d => d.id === id); }
@@ -622,7 +622,7 @@ function wireModelPicker(inputId, menuId, cardId, state, onLoad) {
     $(inputId).value = '';
     const mc = $(cardId); mc.style.display = 'block'; mc.innerHTML = '<span class="fba-hint-inline">Loading…</span>';
     try { const model = await loadModel(gemFile); state.model = model; state.file = gemFile; mc.innerHTML = modelCardHTML(gemFile, model); if (onLoad) onLoad(model); }
-    catch (e) { mc.innerHTML = `<span style="color:#c0392b">${esc(e.message)}</span>`; }
+    catch (e) { mc.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
   });
 }
 
@@ -727,9 +727,9 @@ function renderEss(res, n) {
   rows.forEach(r => counts[r.cls]++);
   $('ess-results').style.display = 'block';
   $('ess-kpis').innerHTML =
-    `<div class="fba-kpi"><div class="v" style="color:#c0392b">${counts.Essential}</div><div class="l">Essential (&lt;1%)</div></div>
-     <div class="fba-kpi"><div class="v" style="color:#e08a1e">${counts.Severe}</div><div class="l">Severe (&lt;50%)</div></div>
-     <div class="fba-kpi"><div class="v" style="color:#5b8ff9">${counts.Mild}</div><div class="l">Mild (&lt;95%)</div></div>
+    `<div class="fba-kpi"><div class="v" style="color:var(--bad)">${counts.Essential}</div><div class="l">Essential (&lt;1%)</div></div>
+     <div class="fba-kpi"><div class="v" style="color:var(--warn)">${counts.Severe}</div><div class="l">Severe (&lt;50%)</div></div>
+     <div class="fba-kpi"><div class="v" style="color:var(--primary)">${counts.Mild}</div><div class="l">Mild (&lt;95%)</div></div>
      <div class="fba-kpi"><div class="v">${counts.Neutral}</div><div class="l">Dispensable</div></div>`;
   window.Plotly.newPlot('ess-plot-pie', [{ type: 'pie', labels: Object.keys(counts), values: Object.values(counts), marker: { colors: Object.keys(counts).map(k => ESS_COLORS[k]) }, textinfo: 'label+percent', hole: 0.45 }],
     { margin: { l: 10, r: 10, t: 10, b: 10 }, height: 320, font: { size: 11 }, showlegend: false }, { responsive: true, displaylogo: false });
