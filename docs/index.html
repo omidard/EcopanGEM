@@ -139,7 +139,16 @@
   .map-tip { position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.12s;
     background: #1a3a5c; color: #fff; font-size: 0.78rem; line-height: 1.25; padding: 0.4rem 0.6rem;
     border-radius: 6px; z-index: 10001; box-shadow: 0 4px 14px rgba(0,0,0,0.25); white-space: nowrap; }
-</style>
+
+    /* Flux Studio */
+    .flux-cta{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:space-between;
+      border:1px solid #d7e3f4;background:linear-gradient(90deg,#f5f9ff 0%,#eaf1ff 100%);
+      border-radius:10px;padding:.95rem 1.15rem;margin:1.1rem 0 1.3rem}
+    .flux-cta-txt{display:flex;flex-direction:column;gap:.2rem;min-width:18rem;flex:1}
+    .flux-cta-txt strong{font-size:.96rem;color:#1a3a5c}
+    .flux-cta-txt span{font-size:.83rem;color:#5b7089;line-height:1.55}
+    .flux-cta .btn{white-space:nowrap}
+  </style>
 </head>
 <body>
 
@@ -166,12 +175,15 @@
   </div>
   <div class="usage-note">Live usage since launch · updated hourly</div>
 
-  <!-- Flux Analysis Studio call-to-action -->
-  <div class="analysis-cta">
-    <div>
-      <strong>⚗️ Flux Analysis Studio</strong> — run FBA, pFBA, FVA, dynamic FBA and multi-model comparisons on any of these GEMs, entirely in your browser.
+  <!-- Flux Studio -->
+  <div class="flux-cta">
+    <div class="flux-cta-txt">
+      <strong>&#9879;&#65039; Simulate any of these models in Flux Studio</strong>
+      <span>Thirteen analyses &mdash; flux balance, knockouts, gene essentiality, flux sampling,
+      strain design &mdash; on 12,340 curated growth media. Nothing installs and nothing uploads:
+      the solver runs in your own browser tab.</span>
     </div>
-    <a class="btn btn-primary btn-sm" href="analysis.html">Open Flux Analysis Studio →</a>
+    <a class="btn btn-primary btn-sm" href="https://omidard.github.io/FluxStudio/" target="_blank" rel="noopener">Open Flux Studio &rarr;</a>
   </div>
 
   <!-- Dashboard -->
@@ -503,7 +515,7 @@ function updateSelCount() {
 function analyzeSelected() {
   const files = getSelectedGemFiles().slice(0, 120);
   if (files.length < 2) { alert('Select at least 2 GEMs to compare.'); return; }
-  window.location.href = 'analysis.html?tab=multi&models=' + files.map(encodeURIComponent).join(',');
+  window.open('https://omidard.github.io/FluxStudio/?tab=multi&models=' + files.map(encodeURIComponent).join(','), '_blank');
 }
 
 // --- Download selected GEMs ---
@@ -847,7 +859,9 @@ async function openGemDetail(gemFile) {
           <span style="font-size:0.8rem;color:#888">${meta.strain || ''} ${meta.phylogroup ? '| Phylogroup ' + meta.phylogroup : ''} ${meta.MLST ? '| MLST ' + meta.MLST : ''}</span>
         </div>
         <div class="d-flex gap-2">
-          <a class="btn btn-sm btn-primary" href="analysis.html?tab=explore&model=${encodeURIComponent(gemFile)}&slot=a" title="Open this model in the Flux Analysis Studio">⚗️ Analyze fluxes</a>
+          <a class="btn btn-sm btn-primary" target="_blank" rel="noopener"
+             href="https://omidard.github.io/FluxStudio/?tab=explore&model=${encodeURIComponent(gemFile)}"
+             title="Simulate this strain in Flux Studio">&#9879;&#65039; Simulate this strain</a>
           <button class="btn btn-sm btn-outline-secondary" onclick="closeGemDetail()">Close</button>
         </div>
       </div>

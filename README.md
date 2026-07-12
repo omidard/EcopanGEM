@@ -37,50 +37,54 @@ Browse, search and **filter all 2,313 strain-specific GEMs** by phylogroup, MLST
 
 <br>
 
-<!-- ─────────────────────────  Flux Analysis Studio  ───────────────────────── -->
-### ⚗️ Flux Analysis Studio
+<!-- ─────────────────────────  Flux Studio  ───────────────────────── -->
+### ⚗️ Flux Studio — simulate these models in your browser
 
-A full **constraint-based-modelling workbench** — the LP is solved **client-side** with a WebAssembly build of GLPK. Eight tools: FBA / pFBA with editable media &amp; knockouts, dynamic FBA, flux variability, production envelopes, phenotype phase planes, essentiality screens, multi-model analytics and metadata **group comparison** — each with a live **Escher** flux map or interactive Plotly charts, and every plot downloads as PNG / SVG.
+[**Flux Studio**](https://github.com/omidard/FluxStudio) runs constraint-based analyses over every one of these 2,313 *E. coli* strain models, entirely client-side. It used to live in this repository; it is now its own project, because it is an application rather than a dataset and because it reads the Lactobacillaceae reconstructions too.
 
 <table>
 <tr>
-<td width="50%"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="docs/shot_studio_1.png" alt="Tool gallery — eight in-browser analyses" width="100%"></a></td>
-<td width="50%"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="docs/shot_studio_2.png" alt="FBA with a live Escher flux map" width="100%"></a></td>
+<td width="50%"><a href="https://omidard.github.io/FluxStudio/"><img src="https://raw.githubusercontent.com/omidard/FluxStudio/main/docs/shot_1_home.png" alt="Thirteen analyses" width="100%"></a></td>
+<td width="50%"><a href="https://omidard.github.io/FluxStudio/"><img src="https://raw.githubusercontent.com/omidard/FluxStudio/main/docs/shot_2_explore.png" alt="Solve, and see the flux map" width="100%"></a></td>
 </tr>
 <tr>
-<td width="50%"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="docs/shot_studio_3.png" alt="Phenotype phase plane — growth surface over two uptake rates" width="100%"></a></td>
-<td width="50%"><a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="docs/shot_studio_4.png" alt="Multi-model analytics — growth, flux scatter, PCA and heatmap" width="100%"></a></td>
+<td align="center"><sub><b>Thirteen analyses</b></sub></td>
+<td align="center"><sub><b>Solve, and see the flux map</b></sub></td>
+</tr>
+<tr>
+<td width="50%"><a href="https://omidard.github.io/FluxStudio/"><img src="https://raw.githubusercontent.com/omidard/FluxStudio/main/docs/shot_3_knockout.png" alt="Knockout: what changed, and is it real" width="100%"></a></td>
+<td width="50%"><a href="https://omidard.github.io/FluxStudio/"><img src="https://raw.githubusercontent.com/omidard/FluxStudio/main/docs/shot_4_media.png" alt="12,340 media, in every analysis" width="100%"></a></td>
+</tr>
+<tr>
+<td align="center"><sub><b>Knockout: what changed, and is it real</b></sub></td>
+<td align="center"><sub><b>12,340 media, in every analysis</b></sub></td>
 </tr>
 </table>
 
-<p align="center">
-  <em>FBA · pFBA · FVA · dynamic FBA · production envelope · phase plane · essentiality · multi-model · group comparison</em><br><br>
-  <a href="https://omidard.github.io/EcopanGEM/analysis.html"><img src="https://img.shields.io/badge/%E2%9A%97%EF%B8%8F%20Launch%20the%20Flux%20Analysis%20Studio-1A7F4B?style=for-the-badge&logo=googlechrome&logoColor=white" height="42" alt="Launch the Flux Analysis Studio"></a>
-  &nbsp;&nbsp;<a href="https://omidard.github.io/EcopanGEM/analysis.html"><code>omidard.github.io/EcopanGEM/analysis.html</code></a>
-</p>
+**Thirteen analyses.** Flux balance analysis, parsimonious FBA, linear MOMA, loopless flux,
+dynamic FBA, flux variability, flux sampling, production envelopes, phenotype phase planes,
+reaction and gene essentiality, synthetic lethality, FSEOF strain design, and model QC.
+Growth media come from the [Media database](https://github.com/omidard/Media): 12,340 of
+them, keyed to BiGG exchange reactions.
 
-<details>
-<summary><b>What's inside the Flux Analysis Studio</b> (click to expand)</summary>
+Nothing installs and nothing uploads. The linear program is solved in your own browser tab
+by a WebAssembly build of GLPK, and every result is checked against COBRApy 0.27.
+
+**Every strain here links straight in.** Open any model in the browser above and press
+*Simulate this strain*, or build the link yourself:
+
+```
+https://omidard.github.io/FluxStudio/?model=536056.3.json.json&ko=ATPS4rpp
+   → knock out ATP synthase in E. coli DH1 and watch it switch to fermentation
+```
+
+<div align="center">
+  <a href="https://omidard.github.io/FluxStudio/"><img src="https://img.shields.io/badge/%E2%9A%97%EF%B8%8F%20Launch%20Flux%20Studio-1E40AF?style=for-the-badge&logo=googlechrome&logoColor=white" height="42" alt="Launch Flux Studio"></a>
+  &nbsp;&nbsp;<a href="https://omidard.github.io/FluxStudio/"><code>omidard.github.io/FluxStudio</code></a>
+  &nbsp;·&nbsp;<a href="https://github.com/omidard/FluxStudio">source</a>
+</div>
 
 <br>
-
-- **Explore & Compare** — FBA / parsimonious FBA, with editable media (per-compound uptake rates, add/remove compounds), reaction knockouts, a live **Escher** flux map, and an A-vs-B comparison mode.
-- **Dynamic FBA** — batch-culture time-course (biomass, substrate depletion, product accumulation) with Michaelis–Menten uptake.
-- **Flux Variability Analysis (FVA)** — min/max flux of every exchange at a chosen fraction of optimal growth.
-- **Production Envelope** — the biomass-vs-product trade-off frontier for any secreted metabolite (strain-design map).
-- **Phenotype Phase Plane** — the growth surface over two uptake capacities, as a contour landscape.
-- **Essentiality Screen** — single-reaction knockout scan classifying every reaction (essential / severe / mild / dispensable).
-- **Multi-model analytics** — run FBA across many strains → growth by phylogroup, an interactive flux **scatter**, a **PCA** of exchange-flux profiles, and a heatmap (all clickable, Plotly).
-- **Group comparison** — define two groups by metadata (phylogroup, MLST, pathotype, isolation source, host…) and test which metabolic traits differ, with Mann–Whitney U + Benjamini–Hochberg FDR and a differential-flux volcano plot.
-
-Media presets: M9 ± O₂ and the HMDB-derived **Feces / Urine / Serum** formulations from S3–S5 Tables of Ardalani *et al.* (PLOS Pathogens `ppat.1013775`). All results — growth rates, pFBA sums, knockouts, FVA/envelope/phase-plane values and the cohort statistics — reproduce COBRApy / scipy to full precision.
-</details>
-
-
----
-
-**Update:** The *E. coli* panGEM is now also available on the BiGGr database:
-https://biggr.org/collections/Ecoli_panGEMs/
 
 ---
 
