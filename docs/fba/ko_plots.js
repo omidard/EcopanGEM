@@ -308,28 +308,27 @@ async function plotTitration(P, ctx) {
     ],
   }), CFG);
 
-  /* What the curve is worth knowing for: how much you have to take away before
-     anything happens. A reaction the cell over-provisions is a bad drug target,
-     because half-inhibiting it does nothing. */
+  /* What the curve is worth knowing for: how much has to be taken away before anything
+     happens. A reaction the cell over-provisions is a poor target, because inhibiting
+     half of it does nothing at all. So always state the spare capacity, rather than
+     sorting the answer into buckets whose edges would decide the wording. */
   const kept = ctx.gK / gW;
+  const spare = 100 - need;
   if (kept >= 0.99) {
-    cap.innerHTML = `Flat. Growth is unchanged even with the reaction removed entirely,
-      so the cell has a route around it and no amount of inhibition would slow it down.
-      The flux it carried in the wild type was a preference, not a requirement.`;
-  } else if (need <= 60) {
-    cap.innerHTML = `Growth is already back to normal at <b>${need.toFixed(0)}%</b> of
-      wild-type capacity, so the cell was pushing far more flux through this reaction
-      than it needed. Removing ${(100 - need).toFixed(0)}% of it changes nothing, and only
-      near-complete removal bites. A partial inhibitor would be wasted here.`;
+    cap.innerHTML = `Flat. Growth is unchanged even with the reaction removed entirely, so
+      the cell has a route around it and no amount of inhibition would slow it down. The
+      flux it carried in the wild type was a preference, not a requirement.`;
   } else if (need >= 99) {
-    cap.innerHTML = `Growth falls the moment any capacity is taken away: the cell is using
-      this reaction at full stretch, with no slack at all. Every percent of inhibition buys
-      a percent of growth.`;
+    cap.innerHTML = `Growth falls the moment any capacity is taken away: no spare at all, and
+      every percent of inhibition costs a percent of growth. Removed entirely, the cell still
+      manages <b>${(100 * kept).toFixed(0)}%</b> of wild-type growth on another route.`;
   } else {
-    cap.innerHTML = `The cell needs <b>${need.toFixed(0)}%</b> of wild-type capacity to grow
-      normally, so there is little spare: growth tracks capacity almost one for one and
-      partial inhibition bites in proportion. Even removed completely the cell still manages
-      <b>${(100 * kept).toFixed(0)}%</b> of wild-type growth on another route.`;
+    cap.innerHTML = `The cell needs only <b>${need.toFixed(0)}%</b> of the flux it was
+      carrying, so <b>${spare.toFixed(0)}%</b> of this reaction's activity is spare. An
+      inhibitor would have to remove more than that before growth moved at all${
+      spare >= 30 ? ', which is what separates a drug target from a dead end' : ''}.
+      Removed entirely, the cell still manages <b>${(100 * kept).toFixed(0)}%</b> of
+      wild-type growth.`;
   }
 }
 
