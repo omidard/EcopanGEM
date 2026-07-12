@@ -216,6 +216,397 @@ export async function essentialityScan(model, mediaBounds, reactionIds, opts = {
   return { wtGrowth: wtG, results: out };
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   COBRApy parity. glpk.js exposes a linear solver only, no integers and no
+   quadratic term, so everything below is formulated as an LP. What that rules
+   out is stated honestly in the UI rather than approximated: ROOM, exact
+   loopless (add_loopless), gapfilling and OptKnock all need MILP, and
+   quadratic MOMA needs QP.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Gene-protein-reaction rules ──────────────────────────────────────────────
+   A gene knockout is not a reaction knockout. Genes act through the GPR: an
+   isozyme (a or b) survives losing one gene, a complex (a and b) does not.
+   Recursive-descent over the boolean rule, never eval(). */
+export function evalGPR(rule, isOn) {
+  if (!rule || !rule.trim()) return true;          // no GPR: spontaneous / orphan, always on
+  const toks = rule.replace(/\(/g, ' ( ').replace(/\)/g, ' ) ').split(/\s+/).filter(Boolean);
+  let i = 0;
+  const atom = () => {
+    if (toks[i] === '(') { i++; const v = or_(); if (toks[i] === ')') i++; return v; }
+    const g = toks[i++];
+    return isOn(g);
+  };
+  const and_ = () => {
+    let v = atom();
+    while (toks[i] && toks[i].toLowerCase() === 'and') { i++; const r = atom(); v = v && r; }
+    return v;
+  };
+  const or_ = () => {
+    let v = and_();
+    while (toks[i] && toks[i].toLowerCase() === 'or') { i++; const r = and_(); v = v || r; }
+    return v;
+  };
+  try { return or_(); } catch (e) { return true; }
+}
+
+/** Reactions switched off when these genes are deleted. */
+export function reactionsOffForGenes(model, deadGenes) {
+  const dead = new Set(deadGenes);
+  const off = [];
+  for (const r of model.reactions) {
+    const rule = r.gene_reaction_rule || '';
+    if (!rule.trim()) continue;                    // not under gene control
+    if (!evalGPR(rule, g => !dead.has(g))) off.push(r.id);
+  }
+  return off;
+}
+
+export function listGenes(model) {
+  return (model.genes || []).map(g => ({ id: g.id, name: g.name || '' }));
+}
+
+/** single_gene_deletion. Returns [{gene, name, nOff, growth, ratio, rxns}]. */
+export async function singleGeneDeletion(model, media, geneIds, opts = {}) {
+  const base = opts.knockouts ? [...opts.knockouts] : [];
+  const wt = await runFBA(model, media, { knockouts: base });
+  const wtG = wt.optimal ? wt.growth : 0;
+  const nameById = {};
+  (model.genes || []).forEach(g => { nameById[g.id] = g.name || ''; });
+  const out = [];
+  let done = 0;
+  for (const gid of geneIds) {
+    const off = reactionsOffForGenes(model, [gid]);
+    const f = off.length ? await runFBA(model, media, { knockouts: base.concat(off) }) : wt;
+    const g = f.optimal ? f.growth : 0;
+    out.push({ gene: gid, name: nameById[gid] || '', nOff: off.length, rxns: off,
+               growth: g, ratio: wtG > 1e-9 ? g / wtG : 0 });
+    if (opts.onProgress) opts.onProgress(++done, geneIds.length);
+  }
+  return { wtGrowth: wtG, results: out };
+}
+
+/** double_reaction_deletion / double_gene_deletion. Pairwise over `ids`.
+    Synthetic lethality: neither single kills, the pair does. */
+export async function doubleDeletion(model, media, ids, kind = 'reaction', opts = {}) {
+  const base = opts.knockouts ? [...opts.knockouts] : [];
+  const wt = await runFBA(model, media, { knockouts: base });
+  const wtG = wt.optimal ? wt.growth : 0;
+  const toRxns = (id) => kind === 'gene' ? reactionsOffForGenes(model, [id]) : [id];
+
+  const singles = {};
+  for (const id of ids) {
+    const f = await runFBA(model, media, { knockouts: base.concat(toRxns(id)) });
+    singles[id] = wtG > 1e-9 ? (f.optimal ? f.growth : 0) / wtG : 0;
+  }
+  const pairs = [], n = ids.length;
+  const total = (n * (n - 1)) / 2;
+  let done = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const kos = base.concat(toRxns(ids[i]), toRxns(ids[j]));
+      const f = await runFBA(model, media, { knockouts: kos });
+      const r = wtG > 1e-9 ? (f.optimal ? f.growth : 0) / wtG : 0;
+      // synthetic lethal: both singles tolerable, the pair is not
+      const sl = r < 0.01 && singles[ids[i]] > 0.5 && singles[ids[j]] > 0.5;
+      pairs.push({ a: ids[i], b: ids[j], ratio: r, ra: singles[ids[i]], rb: singles[ids[j]], synthetic: sl });
+      if (opts.onProgress) opts.onProgress(++done, total);
+    }
+  }
+  pairs.sort((x, y) => x.ratio - y.ratio);
+  return { wtGrowth: wtG, kind, singles, pairs, ids };
+}
+
+/* ── Linear MOMA ──────────────────────────────────────────────────────────────
+   After a knockout a cell does not re-optimise growth, it stays as close to its
+   old flux state as it can. MOMA minimises the distance to the wild-type flux.
+   COBRApy's default MOMA is quadratic; glpk.js has no QP, so this is the linear
+   form (cobra.flux_analysis.moma(..., linear=True)), which is the one usually
+   used for large models anyway. */
+export async function runLMOMA(model, media, refFluxes, opts = {}) {
+  const glpk = await getGLPK();
+  const lp = buildLP(glpk, model, media, opts.knockouts);
+  const objId = (lp.objective.vars[0] || {}).name;
+  const absVars = [], extra = [];
+  for (const rxn of model.reactions) {
+    const w = refFluxes[rxn.id] || 0;
+    const a = 'd_' + rxn.id;
+    absVars.push({ name: a, coef: 1 });
+    lp.bounds.push({ name: a, type: glpk.GLP_LO, lb: 0, ub: 1e30 });
+    // a >= v - w   and   a >= w - v
+    extra.push({ name: 'dp_' + rxn.id, vars: [{ name: a, coef: 1 }, { name: rxn.id, coef: -1 }],
+                 bnds: { type: glpk.GLP_LO, lb: -w, ub: 0 } });
+    extra.push({ name: 'dn_' + rxn.id, vars: [{ name: a, coef: 1 }, { name: rxn.id, coef: 1 }],
+                 bnds: { type: glpk.GLP_LO, lb: w, ub: 0 } });
+  }
+  lp.subjectTo = lp.subjectTo.concat(extra);
+  lp.objective = { direction: glpk.GLP_MIN, name: 'moma', vars: absVars };
+  const res = await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true });
+  const r = res.result, all = r.vars || {};
+  const fluxes = {};
+  for (const rxn of model.reactions) fluxes[rxn.id] = all[rxn.id] || 0;
+  return { status: r.status, optimal: r.status === glpk.GLP_OPT, objectiveId: objId,
+           growth: fluxes[objId] || 0, distance: r.z, fluxes, moma: true };
+}
+
+/* ── CycleFreeFlux (loopless_solution) ────────────────────────────────────────
+   Thermodynamically infeasible internal loops carry flux that no cell could.
+   Exact loop removal needs MILP; CycleFreeFlux (Desouki 2015) is the LP form:
+   hold the objective and every exchange at the given solution, keep each
+   internal reaction's sign, and minimise total internal flux. Same growth, same
+   exchanges, no loops. */
+export async function looplessSolution(model, media, fluxes, opts = {}) {
+  const glpk = await getGLPK();
+  const lp = buildLP(glpk, model, media, opts.knockouts);
+  const objId = (lp.objective.vars[0] || {}).name;
+  const minVars = [];
+  for (const b of lp.bounds) {
+    const v0 = fluxes[b.name] || 0;
+    if (b.name.startsWith('EX_') || b.name === objId) {   // pin what the cell exchanges and how fast it grows
+      b.lb = v0; b.ub = v0; b.type = glpk.GLP_FX;
+      continue;
+    }
+    if (v0 >= 0) { b.lb = 0; b.ub = Math.max(v0, 0); }     // same direction, may shrink to zero
+    else { b.lb = Math.min(v0, 0); b.ub = 0; }
+    b.type = (b.lb === b.ub) ? glpk.GLP_FX : glpk.GLP_DB;
+    minVars.push({ name: b.name, coef: v0 >= 0 ? 1 : -1 }); // |v| is linear once the sign is fixed
+  }
+  lp.objective = { direction: glpk.GLP_MIN, name: 'cyclefree', vars: minVars };
+  const res = await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true });
+  const r = res.result, all = r.vars || {};
+  const out = {}, removed = [];
+  for (const rxn of model.reactions) {
+    out[rxn.id] = all[rxn.id] || 0;
+    const before = fluxes[rxn.id] || 0;
+    if (Math.abs(before) > 1e-6 && Math.abs(out[rxn.id]) < 1e-9) removed.push({ id: rxn.id, was: before });
+  }
+  removed.sort((a, b) => Math.abs(b.was) - Math.abs(a.was));
+  return { optimal: r.status === glpk.GLP_OPT, fluxes: out, removed,
+           totalBefore: sumAbs(fluxes, model), totalAfter: sumAbs(out, model) };
+}
+const sumAbs = (f, model) => model.reactions.reduce((s, r) => s + Math.abs(f[r.id] || 0), 0);
+
+/* ── find_blocked_reactions + model QC ───────────────────────────────────────
+   Blocked reactions can carry no flux at all under this medium: dead code in
+   the reconstruction. Mass and charge balance are checked without solving. */
+export async function findBlockedReactions(model, media, opts = {}) {
+  const glpk = await getGLPK();
+  const lp = buildLP(glpk, model, media, opts.knockouts);
+  const ids = (opts.reactionIds || model.reactions.map(r => r.id));
+  const blocked = [];
+  let done = 0;
+  for (const rid of ids) {
+    lp.objective = { direction: glpk.GLP_MAX, name: 'b', vars: [{ name: rid, coef: 1 }] };
+    const mx = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result.z || 0;
+    lp.objective.direction = glpk.GLP_MIN;
+    const mn = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result.z || 0;
+    if (Math.abs(mx) < 1e-9 && Math.abs(mn) < 1e-9) blocked.push(rid);
+    if (opts.onProgress) opts.onProgress(++done, ids.length);
+  }
+  return { blocked, tested: ids.length };
+}
+
+/** Structural QC. No LP: pure stoichiometry, the way MEMOTE does it. */
+export function modelQC(model) {
+  const metById = {};
+  for (const m of model.metabolites) metById[m.id] = m;
+  const parseF = (f) => {
+    const c = {};
+    if (!f) return null;
+    const re = /([A-Z][a-z]?)(\d*\.?\d*)/g; let m2, seen = false;
+    while ((m2 = re.exec(f))) { seen = true; c[m2[1]] = (c[m2[1]] || 0) + (m2[2] ? parseFloat(m2[2]) : 1); }
+    return seen ? c : null;
+  };
+  const massImbalanced = [], chargeImbalanced = [];
+  for (const r of model.reactions) {
+    if (r.id.startsWith('EX_') || /BIOMASS|biomass/i.test(r.id)) continue;  // exchanges & biomass are open by design
+    const tot = {}; let charge = 0, ok = true;
+    for (const [mid, coef] of Object.entries(r.metabolites || {})) {
+      const met = metById[mid]; if (!met) { ok = false; break; }
+      const f = parseF(met.formula); if (!f) { ok = false; break; }
+      for (const [el, n] of Object.entries(f)) tot[el] = (tot[el] || 0) + n * coef;
+      charge += (met.charge || 0) * coef;
+    }
+    if (!ok) continue;
+    const off = Object.entries(tot).filter(([, v]) => Math.abs(v) > 1e-6);
+    if (off.length) massImbalanced.push({ id: r.id, name: r.name || '', delta: Object.fromEntries(off) });
+    if (Math.abs(charge) > 1e-6) chargeImbalanced.push({ id: r.id, name: r.name || '', charge });
+  }
+  // metabolites only ever produced, or only ever consumed
+  const prod = {}, cons = {};
+  for (const r of model.reactions) {
+    for (const [mid, coef] of Object.entries(r.metabolites || {})) {
+      const rev = r.lower_bound < 0, fwd = r.upper_bound > 0;
+      if ((coef > 0 && fwd) || (coef < 0 && rev)) prod[mid] = (prod[mid] || 0) + 1;
+      if ((coef < 0 && fwd) || (coef > 0 && rev)) cons[mid] = (cons[mid] || 0) + 1;
+    }
+  }
+  const deadEnds = model.metabolites.filter(m => !prod[m.id] || !cons[m.id])
+    .map(m => ({ id: m.id, name: m.name || '', onlyProduced: !cons[m.id], onlyConsumed: !prod[m.id] }));
+  const noFormula = model.metabolites.filter(m => !m.formula).map(m => m.id);
+  const usedGenes = new Set();
+  model.reactions.forEach(r => (r.gene_reaction_rule || '').split(/[^\w.\-]+/).forEach(g => g && usedGenes.add(g)));
+  const orphanGenes = (model.genes || []).filter(g => !usedGenes.has(g.id)).map(g => g.id);
+  const noGPR = model.reactions.filter(r => !r.id.startsWith('EX_') && !(r.gene_reaction_rule || '').trim())
+    .map(r => r.id);
+  return { massImbalanced, chargeImbalanced, deadEnds, noFormula, orphanGenes, noGPR,
+           nReactions: model.reactions.length, nMetabolites: model.metabolites.length, nGenes: (model.genes || []).length };
+}
+
+/* ── FSEOF ────────────────────────────────────────────────────────────────────
+   Flux Scanning with Enforced Objective Flux (Choi 2010). Force the product
+   secretion up in steps while still maximising growth, and watch which internal
+   reactions have to carry more flux. Those are the amplification targets: the
+   reactions a strain engineer should over-express. */
+export async function fseof(model, media, productEx, opts = {}) {
+  const steps = opts.steps || 10;
+  const glpk = await getGLPK();
+  const lpP = buildLP(glpk, model, media, opts.knockouts);
+  lpP.objective = { direction: glpk.GLP_MAX, name: 'p', vars: [{ name: productEx, coef: 1 }] };
+  const prodMax = (await glpk.solve(lpP, { msglev: glpk.GLP_MSG_OFF, presol: true })).result.z || 0;
+  if (prodMax <= 1e-9) return { productEx, prodMax: 0, levels: [], targets: [] };
+
+  const wt = await runPFBA(model, media, null, { knockouts: opts.knockouts });
+  const levels = [], series = {};
+  for (const r of model.reactions) series[r.id] = [];
+  let done = 0;
+  for (let i = 1; i <= steps; i++) {
+    const enforce = prodMax * (i / (steps + 1));
+    const lp = buildLP(glpk, model, media, opts.knockouts);
+    for (const b of lp.bounds) if (b.name === productEx) { b.lb = enforce; b.ub = 1e30; b.type = glpk.GLP_LO; }
+    const fba = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result;
+    if (fba.status !== glpk.GLP_OPT) { if (opts.onProgress) opts.onProgress(++done, steps); continue; }
+    const f = fba.vars || {};
+    levels.push({ enforced: enforce, growth: fba.z });
+    for (const r of model.reactions) series[r.id].push(f[r.id] || 0);
+    if (opts.onProgress) opts.onProgress(++done, steps);
+  }
+  // a target increases monotonically with the enforced product flux
+  const targets = [];
+  for (const r of model.reactions) {
+    if (r.id === productEx || r.id.startsWith('EX_')) continue;
+    const v = series[r.id];
+    if (v.length < 3) continue;
+    const first = v[0], last = v[v.length - 1];
+    if (Math.abs(last) < 1e-6) continue;
+    let up = 0;
+    for (let i = 1; i < v.length; i++) if (Math.abs(v[i]) >= Math.abs(v[i - 1]) - 1e-9) up++;
+    const mono = up / (v.length - 1);
+    const fold = Math.abs(first) > 1e-6 ? Math.abs(last) / Math.abs(first) : Infinity;
+    if (mono > 0.85 && Math.abs(last) > Math.abs(first) + 1e-6) {
+      targets.push({ id: r.id, name: r.name || '', subsystem: r.subsystem || '',
+                     wt: wt.fluxes ? (wt.fluxes[r.id] || 0) : 0, first, last, fold, series: v });
+    }
+  }
+  targets.sort((a, b) => (Math.abs(b.last) - Math.abs(b.first)) - (Math.abs(a.last) - Math.abs(a.first)));
+  return { productEx, prodMax, levels, targets };
+}
+
+/* ── Flux sampling (ACHR) ────────────────────────────────────────────────────
+   Artificial Centering Hit-and-Run. Warm-up points come from optimising random
+   objective directions; then each step moves from a point toward the running
+   centre along a random chord of the polytope. Same family as COBRApy's OptGP.
+   Approximate: with a few hundred warm-up LPs it explores the space, it is not
+   a proof of uniformity. */
+export async function sampleFluxes(model, media, opts = {}) {
+  const glpk = await getGLPK();
+  const nWarm = opts.warmup || 120;
+  const nSamp = opts.samples || 400;
+  const track = opts.trackIds || model.reactions.filter(r => r.id.startsWith('EX_')).map(r => r.id).slice(0, 30);
+  const base = buildLP(glpk, model, media, opts.knockouts);
+  const objId = (base.objective.vars[0] || {}).name;
+
+  // hold growth at a fraction of optimum so we sample the space a living cell occupies
+  const opt = (await glpk.solve(base, { msglev: glpk.GLP_MSG_OFF, presol: true })).result;
+  if (opt.status !== glpk.GLP_OPT || !(opt.z > 1e-9)) return { ok: false, reason: 'no growth on this medium' };
+  const frac = opts.fraction != null ? opts.fraction : 0.9;
+  for (const b of base.bounds) if (b.name === objId) { b.lb = frac * opt.z; b.ub = Math.max(b.ub, opt.z); b.type = glpk.GLP_DB; }
+
+  const rxns = model.reactions.map(r => r.id);
+  const warm = [];
+  let done = 0;
+  for (let i = 0; i < nWarm; i++) {
+    const lp = JSON.parse(JSON.stringify(base));
+    lp.objective = { direction: Math.random() < 0.5 ? glpk.GLP_MAX : glpk.GLP_MIN, name: 'w',
+                     vars: rxns.filter(() => Math.random() < 0.15).map(id => ({ name: id, coef: Math.random() * 2 - 1 })) };
+    if (!lp.objective.vars.length) lp.objective.vars = [{ name: rxns[i % rxns.length], coef: 1 }];
+    const r = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result;
+    if (r.status === glpk.GLP_OPT) warm.push(r.vars || {});
+    if (opts.onProgress) opts.onProgress(++done, nWarm + nSamp);
+  }
+  if (warm.length < 5) return { ok: false, reason: 'warm-up failed' };
+
+  // hit-and-run between warm-up points, recentring as we go
+  const centre = {};
+  for (const id of rxns) centre[id] = warm.reduce((s, p) => s + (p[id] || 0), 0) / warm.length;
+  const lo = {}, hi = {};
+  for (const b of base.bounds) { lo[b.name] = b.lb; hi[b.name] = b.ub; }
+  /* Only reactions that can actually move matter. A defined medium fixes every
+     closed exchange at lb = ub = 0; with a whisker of numerical noise in the
+     direction, such a variable collapses the allowed step to [0, 0] and the walk
+     stalls. Free variables only, and a real tolerance on the direction. */
+  const free = rxns.filter(id => (hi[id] - lo[id]) > 1e-7);
+  const samples = [];
+  const clamp = (pt) => { for (const id of free) pt[id] = Math.min(hi[id], Math.max(lo[id], pt[id] || 0)); return pt; };
+  let cur = clamp({ ...warm[0] });
+  let stalls = 0;
+  for (let s = 0; s < nSamp; s++) {
+    let t = null, dir = null, norm = 1;
+    for (let attempt = 0; attempt < 6 && t === null; attempt++) {
+      const p = warm[Math.floor(Math.random() * warm.length)];
+      dir = {}; norm = 0;
+      for (const id of free) { const d = (p[id] || 0) - centre[id]; dir[id] = d; norm += d * d; }
+      norm = Math.sqrt(norm);
+      if (norm < 1e-9) continue;
+      let tmax = Infinity, tmin = -Infinity;
+      for (const id of free) {
+        const d = dir[id] / norm;
+        if (Math.abs(d) < 1e-9) continue;
+        const up = (hi[id] - (cur[id] || 0)) / d;
+        const dn = (lo[id] - (cur[id] || 0)) / d;
+        const mn = Math.min(up, dn), mx = Math.max(up, dn);
+        if (mx < tmax) tmax = mx;
+        if (mn > tmin) tmin = mn;
+      }
+      if (!isFinite(tmax) || !isFinite(tmin) || (tmax - tmin) < 1e-9) continue;
+      // stay off the exact face, it is where the numerics go bad
+      t = tmin + (0.02 + 0.96 * Math.random()) * (tmax - tmin);
+    }
+    if (t === null) { cur = clamp({ ...warm[Math.floor(Math.random() * warm.length)] }); stalls++; if (opts.onProgress) opts.onProgress(++done, nWarm + nSamp); continue; }
+
+    const next = { ...cur };
+    for (const id of free) next[id] = (cur[id] || 0) + t * dir[id] / norm;
+    cur = clamp(next);
+    const row = {}; for (const id of track) row[id] = cur[id] || 0;
+    samples.push(row);
+    for (const id of free) centre[id] = (centre[id] * (warm.length + s) + cur[id]) / (warm.length + s + 1);
+    if (opts.onProgress) opts.onProgress(++done, nWarm + nSamp);
+  }
+  return { ok: true, track, samples, warmup: warm.length, fraction: frac, free: free.length, stalls };
+}
+
+/** metabolite.summary(): who makes it and who eats it, at this flux state. */
+export function metaboliteSummary(model, fluxes, metId, tol = 1e-8) {
+  const producing = [], consuming = [];
+  for (const r of model.reactions) {
+    const coef = (r.metabolites || {})[metId];
+    if (!coef) continue;
+    const v = fluxes[r.id] || 0;
+    if (Math.abs(v) < tol) continue;
+    const rate = coef * v;                          // >0 net produced, <0 net consumed
+    const rec = { id: r.id, name: r.name || '', flux: v, rate: Math.abs(rate),
+                  subsystem: r.subsystem || '' };
+    if (rate > 0) producing.push(rec); else consuming.push(rec);
+  }
+  producing.sort((a, b) => b.rate - a.rate);
+  consuming.sort((a, b) => b.rate - a.rate);
+  const total = producing.reduce((s, x) => s + x.rate, 0);
+  producing.forEach(x => x.share = total ? x.rate / total : 0);
+  const totalC = consuming.reduce((s, x) => s + x.rate, 0);
+  consuming.forEach(x => x.share = totalC ? x.rate / totalC : 0);
+  return { metId, producing, consuming, turnover: total };
+}
+
 /* ── Exchange-id resolution across BiGG naming generations ────────────────────
    EcopanGEM follows current BiGG and writes stereo tags with a DOUBLE underscore
    (EX_glc__D_e). LactoPanGEM predates that change and writes a single one

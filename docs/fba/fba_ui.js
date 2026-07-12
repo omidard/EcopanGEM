@@ -2,7 +2,7 @@
 // Single & comparative FBA/pFBA with editable media, knockouts, a rich model
 // picker, charts (Chart.js) and Escher flux maps. All client-side.
 // Depends on page globals: gemBatchMap, BATCH_URL_BASE, JSZip, Chart, escher.
-import { runFBA, runPFBA, exchangeReport, listExchanges, listReactions,
+import { runFBA, runPFBA, runLMOMA, looplessSolution, exchangeReport, listExchanges, listReactions,
          bindMedium, exchangeIndex, resolveExchange } from './fba_engine.js';
 import * as MediaDB from './media.js';
 
@@ -514,13 +514,25 @@ async function runAnalysis(cond, meth) {
   return runWith(cond, meth, [...cond.knockouts]);
 }
 
-async function runWith(cond, meth, knockouts) {
+async function runWith(cond, meth, knockouts, ref) {
   const opts = { knockouts };
   const fba = await runFBA(cond.model, cond.mediaBounds, opts);
   let result = fba;
-  if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) result = await runPFBA(cond.model, cond.mediaBounds, fba, opts);
+  if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) {
+    result = await runPFBA(cond.model, cond.mediaBounds, fba, opts);
+  } else if (meth === 'moma' && ref && fba.optimal) {
+    // MOMA asks a different question: not "what maximises growth after the
+    // knockout" but "what is the smallest change from how the cell was running".
+    result = await runLMOMA(cond.model, cond.mediaBounds, ref, opts);
+  }
+  // CycleFreeFlux: same growth, same exchanges, no thermodynamically impossible loops
+  if (looplessOn() && result.optimal && result.growth > 1e-9) {
+    const ll = await looplessSolution(cond.model, cond.mediaBounds, result.fluxes, opts);
+    if (ll.optimal) { result = { ...result, fluxes: ll.fluxes, loopless: true, loopsRemoved: ll.removed.length }; }
+  }
   return { cond, fba, result, meth, knockouts };
 }
+function looplessOn() { const c = $('fba-loopless'); return !!(c && c.checked); }
 
 /* ── Knockout study: the same model and medium, solved with and without the
    knockouts, so the effect is read as a difference rather than an absolute. ── */
@@ -654,8 +666,11 @@ async function run() {
       if (!a.knockouts.size) return setStatus('Add at least one reaction knockout to compare against.', 'err');
       setStatus(`Solving wild type and knockout (${meth.toUpperCase()})…`, 'busy');
       const t0 = performance.now();
-      const RW = await runWith(a, meth, []);                 // wild type
-      const RK = await runWith(a, meth, [...a.knockouts]);   // same model, same medium, minus the reactions
+      // MOMA measures distance FROM the wild type, so the wild type is solved by
+      // pFBA first and handed to the knockout as its reference state.
+      const wtMeth = meth === 'moma' ? 'pfba' : meth;
+      const RW = await runWith(a, wtMeth, []);
+      const RK = await runWith(a, meth, [...a.knockouts], RW.result.fluxes);
       S.lastRun = { mode: 'ko', RA: RW, RB: RK };
       renderKO(RW, RK);
       setStatus(`Done — both solved in ${(performance.now() - t0).toFixed(0)} ms.`, 'ok');
@@ -872,6 +887,12 @@ function setMode(mode) {
   if (runBtn) runBtn.textContent = mode === 'ko' ? '▶ Run knockout study' : '▶ Run analysis';
   const koHint = $('fba-ko-hint');
   if (koHint) koHint.style.display = mode === 'ko' ? '' : 'none';
+  const momaOpt = $('fba-moma-opt');
+  if (momaOpt) {
+    momaOpt.style.display = mode === 'ko' ? '' : 'none';
+    const r = momaOpt.querySelector('input');
+    if (mode !== 'ko' && r.checked) { r.checked = false; document.querySelector('input[name="fba-method"][value="pfba"]').checked = true; }
+  }
 }
 
 async function init() {

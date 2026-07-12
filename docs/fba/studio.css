@@ -775,3 +775,6 @@ footer { text-align: center; padding: 1.8rem; color: var(--mute); font-size: .78
   font-size: .71rem; line-height: 1.45;
   border-left: 2px solid var(--primary);
 }
+
+.fba-loopless { margin-left: .3rem; padding-left: .6rem; border-left: 1px solid var(--line-2); cursor: help; }
+.fba-loopless input { accent-color: var(--accent); }

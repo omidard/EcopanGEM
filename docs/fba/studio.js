@@ -1,6 +1,7 @@
 // EcopanGEM Flux Analysis Studio — FVA, Dynamic FBA & Multi-model tabs.
 // (The Explore/Compare tab is handled by fba_ui.js.) All client-side.
-import { runFBA, runPFBA, runFVA, runDFBA, productionEnvelope, phasePlane, essentialityScan, exchangeReport, listExchanges, bindMedium } from './fba_engine.js';
+import { runFBA, runPFBA, runFVA, runDFBA, productionEnvelope, phasePlane, essentialityScan, exchangeReport, listExchanges, bindMedium,
+         singleGeneDeletion, doubleDeletion, fseof, sampleFluxes, findBlockedReactions, modelQC, listGenes } from './fba_engine.js';
 
 // Glucose is spelled differently across BiGG generations. Pick whichever this model has.
 const GLC = ['EX_glc__D_e', 'EX_glc_D_e', 'EX_glc_e'];
@@ -23,6 +24,17 @@ function fillMedia(sel, descEl) {
   const upd = () => { if (descEl) { const p = PRESETS[sel.value]; descEl.textContent = `${p.desc} · ${Object.keys(p.bounds).length} exchanges · ${p.source}`; } };
   sel.addEventListener('change', upd); upd();
 }
+/* Bind a preset medium to THIS model. Never pass raw preset bounds to the solver:
+   LactoPanGEM predates the BiGG double-underscore convention (EX_glc_D_e vs
+   EX_glc__D_e), buildLP closes every exchange the medium does not name, and the
+   result is a silently carbon-free medium and zero growth. See bindMedium. */
+function mediaFor(model, key) {
+  const p = PRESETS[key];
+  if (!model || !p) return (p ? p.bounds : {});
+  const comps = Object.entries(p.bounds).map(([exchange, lower_bound]) => ({ exchange, lower_bound }));
+  return bindMedium(model, comps).bounds;
+}
+
 const metaByFile = new Map();
 function meta(gemFile) { if (!metaByFile.size && window.gemMetadata) window.gemMetadata.forEach(m => metaByFile.set(m.gem_file, m)); return metaByFile.get(gemFile) || {}; }
 
@@ -67,12 +79,36 @@ function modelCardHTML(gemFile, model) {
     ${m.phylogroup ? `<span class="fba-tag">Phylogroup ${esc(m.phylogroup)}</span>` : ''}${m.MLST ? `<span class="fba-tag">ST ${esc(m.MLST)}</span>` : ''}${m.isolation_source ? `<span class="fba-tag">${esc(m.isolation_source)}</span>` : ''}</div>`;
 }
 function setStatus(id, msg, kind) { const e = $(id); e.textContent = msg; e.className = 'fba-status ' + (kind || ''); }
+/* shared KPI + Plotly layout for the newer panels */
+const PLOT_CFG = { responsive: true, displaylogo: false };
+const PALETTE = ['#2c6fbb', '#c0392b', '#1a7f4b', '#e08a1e', '#7d3c98', '#16a085',
+                 '#5b8ff9', '#e15759', '#59a14f', '#f28e2b', '#76b7b2', '#b07aa1'];
+
+function kpi(v, l, color) {
+  return `<div class="fba-kpi"><div class="v"${color ? ` style="color:${color}"` : ''}>${v}</div><div class="l">${l}</div></div>`;
+}
+function plotly(title, xt, yt) {
+  return {
+    title: title || '',
+    margin: { l: 62, r: 20, t: title ? 40 : 18, b: 62 },
+    xaxis: { title: xt || '', automargin: true },
+    yaxis: { title: yt || '', automargin: true },
+    paper_bgcolor: '#fff', plot_bgcolor: '#fff',
+    font: { family: "'Fira Sans', system-ui, sans-serif", size: 11, color: '#334155' },
+  };
+}
+
 function prog(wrapId, barId, frac) { const w = $(wrapId); w.style.display = frac == null ? 'none' : 'block'; if (frac != null) $(barId).style.width = Math.round(frac * 100) + '%'; }
 function saveCSV(csv, base) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = base + '.csv'; a.click(); }
 const bio = (id) => id.replace(/^EX_/, '').replace(/_e$/, '');
 
 // ── Sidebar navigation ─────────────────────────────────────────────────────────
 const TAB_META = {
+  genes: ['Gene Essentiality', 'Delete every gene through its GPR rule &mdash; isozymes survive, complexes do not.'],
+  synlethal: ['Synthetic Lethality', 'Double deletions: pairs where neither knockout hurts alone, but together they kill.'],
+  design: ['Strain Design (FSEOF)', 'Force a product up and see which reactions must carry more flux.'],
+  sampling: ['Flux Sampling', 'ACHR hit-and-run through the solution space &mdash; the distribution, not one optimum.'],
+  qc: ['Model QC', 'Blocked reactions, mass and charge imbalance, dead ends, orphan genes.'],
   home: ['Flux Analysis Studio', 'A constraint-based modelling workbench for 2,313 E. coli strain GEMs — everything runs in your browser.'],
   explore: ['Explore & Compare', 'FBA / pFBA with editable media, knockouts and a live Escher flux map.'],
   dfba: ['Dynamic FBA', 'Batch-culture time course from Michaelis–Menten uptake kinetics.'],
@@ -133,7 +169,7 @@ function initFVA() {
 }
 async function runFVAtab() {
   if (!fvaState.model) return setStatus('fva-status', 'Choose a model first.', 'err');
-  const media = PRESETS[$('fva-media').value].bounds;
+  const media = mediaFor(fvaState.model, $('fva-media').value);
   const fraction = +$('fva-frac').value;
   const exIds = listExchanges(fvaState.model).map(e => e.id);
   $('fva-run').disabled = true; $('fva-results').style.display = 'none';
@@ -199,7 +235,7 @@ function initDFBA() {
 }
 async function runDFBAtab() {
   if (!dfbaState.model) return setStatus('dfba-status', 'Choose a model first.', 'err');
-  const media = PRESETS[$('dfba-media').value].bounds;
+  const media = mediaFor(dfbaState.model, $('dfba-media').value);
   const substrateEx = $('dfba-substrate').value;
   const opts = {
     substrateEx, substrate0: +$('dfba-s0').value, biomass0: +$('dfba-x0').value,
@@ -274,7 +310,7 @@ function renderChips() {
 }
 async function runMulti() {
   if (mm.selected.length < 2) return setStatus('mm-status', 'Add at least 2 models.', 'err');
-  const media = PRESETS[$('mm-media').value].bounds;
+  const mmMediaKey = $('mm-media').value;   // bound per model inside the loop
   const meth = document.querySelector('input[name="mm-method"]:checked').value;
   $('mm-run').disabled = true; $('mm-results').style.display = 'none';
   setStatus('mm-status', `Running ${meth.toUpperCase()} on ${mm.selected.length} models…`, 'busy'); prog('mm-prog', 'mm-prog-bar', 0);
@@ -285,6 +321,7 @@ async function runMulti() {
       const f = mm.selected[i];
       try {
         const model = await loadModel(f);
+        const media = mediaFor(model, mmMediaKey);   // per model: the two pangenomes spell exchanges differently
         const fba = await runFBA(model, media);
         let res = fba;
         if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) res = await runPFBA(model, media, fba);
@@ -507,7 +544,7 @@ async function runCohort() {
   const aFiles = cohortFiles('a'), bFiles = cohortFiles('b');
   if (aFiles.length < 3 || bFiles.length < 3) return setStatus('cohort-status', 'Each cohort needs ≥3 GEMs. Broaden your selection.', 'err');
   const cap = Math.max(3, Math.min(80, +$('cohort-cap').value || 25));
-  const media = PRESETS[$('cohort-media').value].bounds;
+  const cohortMediaKey = $('cohort-media').value;   // bound per model inside the loop
   const meth = document.querySelector('input[name="cohort-method"]:checked').value;
   const sampA = sample(aFiles, cap), sampB = sample(bFiles, cap);
   const overlap = new Set(sampA).size + new Set(sampB).size - new Set([...sampA, ...sampB]).size;
@@ -519,7 +556,7 @@ async function runCohort() {
     const rows = [];
     for (let i = 0; i < jobs.length; i++) {
       const [grp, f] = jobs[i];
-      try { const model = await loadModel(f); const fba = await runFBA(model, media); let res = fba; if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) res = await runPFBA(model, media, fba); const ex = {}; for (const [id, v] of Object.entries(res.fluxes)) if (id.startsWith('EX_') && Math.abs(v) > 1e-6) ex[id] = v; rows.push({ grp, file: f, meta: meta(f), growth: fba.optimal ? fba.growth : 0, ex }); }
+      try { const model = await loadModel(f); const media = mediaFor(model, cohortMediaKey); const fba = await runFBA(model, media); let res = fba; if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) res = await runPFBA(model, media, fba); const ex = {}; for (const [id, v] of Object.entries(res.fluxes)) if (id.startsWith('EX_') && Math.abs(v) > 1e-6) ex[id] = v; rows.push({ grp, file: f, meta: meta(f), growth: fba.optimal ? fba.growth : 0, ex }); }
       catch (e) { rows.push({ grp, file: f, meta: meta(f), growth: 0, ex: {} }); }
       prog('cohort-prog', 'cohort-prog-bar', (i + 1) / jobs.length); setStatus('cohort-status', `Solved ${i + 1}/${jobs.length}…`, 'busy');
     }
@@ -646,7 +683,7 @@ function initEnvelope() {
 }
 async function runEnvelope() {
   if (!envState.model) return setStatus('env-status', 'Choose a model first.', 'err');
-  const media = PRESETS[$('env-media').value].bounds, product = $('env-product').value;
+  const media = mediaFor(envState.model, $('env-media').value), product = $('env-product').value;
   $('env-run').disabled = true; $('env-results').style.display = 'none';
   setStatus('env-status', 'Computing envelope…', 'busy'); prog('env-prog', 'env-prog-bar', 0);
   try {
@@ -686,7 +723,7 @@ function initPhasePlane() {
 }
 async function runPP() {
   if (!ppState.model) return setStatus('pp-status', 'Choose a model first.', 'err');
-  const media = PRESETS[$('pp-media').value].bounds, xId = $('pp-x').value, yId = $('pp-y').value, n = Math.max(6, Math.min(40, +$('pp-n').value || 20));
+  const media = mediaFor(ppState.model, $('pp-media').value), xId = $('pp-x').value, yId = $('pp-y').value, n = Math.max(6, Math.min(40, +$('pp-n').value || 20));
   if (xId === yId) return setStatus('pp-status', 'Choose two different axes.', 'err');
   $('pp-run').disabled = true; $('pp-results').style.display = 'none';
   setStatus('pp-status', `Solving ${n}×${n} grid…`, 'busy'); prog('pp-prog', 'pp-prog-bar', 0);
@@ -713,7 +750,7 @@ function essClass(ratio) { return ratio < 0.01 ? 'Essential' : ratio < 0.5 ? 'Se
 const ESS_COLORS = { Essential: '#c0392b', Severe: '#e08a1e', Mild: '#5b8ff9', Neutral: '#cfd8e3' };
 async function runEss() {
   if (!essState.model) return setStatus('ess-status', 'Choose a model first.', 'err');
-  const media = PRESETS[$('ess-media').value].bounds, scope = $('ess-scope').value;
+  const media = mediaFor(essState.model, $('ess-media').value), scope = $('ess-scope').value;
   const all = essState.model.reactions.map(r => r.id);
   const ids = scope === 'exchange' ? all.filter(id => id.startsWith('EX_')) : scope === 'metabolic' ? all.filter(id => !id.startsWith('EX_')) : all;
   $('ess-run').disabled = true; $('ess-results').style.display = 'none';
@@ -752,6 +789,7 @@ function renderEss(res, n) {
 async function init() {
   await presets();
   initNav(); initFVA(); initDFBA(); initMulti(); initCohort(); initEnvelope(); initPhasePlane(); initEssential();
+  initGenes(); initSyn(); initFseof(); initSamp(); initQC();
   wireDownloads(); decorateStaticPlots();
   // URL param handoff: ?tab=&model=&slot=&models=
   const q = new URLSearchParams(location.search);
@@ -761,3 +799,343 @@ async function init() {
   } else if (q.get('tab')) switchTab(q.get('tab'));
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+
+/* ════════════════════════ Gene essentiality ═══════════════════════════════ */
+const genesState = { model: null, file: null, res: null };
+function initGenes() {
+  fillMedia($('genes-media'), $('genes-media-desc'));
+  wireModelPicker('genes-model-input', 'genes-model-menu', 'genes-modelcard', genesState);
+  $('genes-run').addEventListener('click', runGenes);
+}
+const geneClass = (r) => r < 0.01 ? 'Essential' : r < 0.5 ? 'Severe' : r < 0.95 ? 'Mild' : 'Dispensable';
+const CLS_COL = { Essential: '#c0392b', Severe: '#e08a1e', Mild: '#5b8ff9', Dispensable: '#9aa7b8' };
+
+async function runGenes() {
+  if (!genesState.model) return setStatus('genes-status', 'Choose a model first.', 'err');
+  const media = mediaFor(genesState.model, $('genes-media').value);
+  const cap = +$('genes-scope').value;
+  const all = listGenes(genesState.model).map(g => g.id);
+  const genes = cap ? all.slice(0, cap) : all;
+  const btn = $('genes-run'); btn.disabled = true;
+  setStatus('genes-status', `Deleting ${genes.length} genes through their GPRs…`, 'busy');
+  try {
+    const t0 = performance.now();
+    const res = await singleGeneDeletion(genesState.model, media, genes,
+      { onProgress: (d, t) => prog('genes-prog', 'genes-prog-bar', d / t) });
+    prog('genes-prog', 'genes-prog-bar', null);
+    genesState.res = res;
+    renderGenes(res);
+    setStatus('genes-status', `Done — ${genes.length} single-gene deletions in ${((performance.now() - t0) / 1000).toFixed(1)} s.`, 'ok');
+  } catch (e) { setStatus('genes-status', 'Error: ' + e.message, 'err'); console.error(e); }
+  finally { btn.disabled = false; }
+}
+
+function renderGenes(res) {
+  const rows = res.results.map(r => ({ ...r, cls: geneClass(r.ratio) }));
+  const counts = {}; rows.forEach(r => counts[r.cls] = (counts[r.cls] || 0) + 1);
+  $('genes-results').style.display = 'block';
+  $('genes-kpis').innerHTML =
+    kpi(fmt(res.wtGrowth), 'Wild-type growth (h⁻¹)') +
+    kpi(counts.Essential || 0, 'Essential genes', '#c0392b') +
+    kpi(counts.Severe || 0, 'Severe', '#e08a1e') +
+    kpi(counts.Mild || 0, 'Mild', '#5b8ff9') +
+    kpi(counts.Dispensable || 0, 'Dispensable', '#9aa7b8') +
+    kpi(rows.length, 'Genes tested');
+  const order = ['Essential', 'Severe', 'Mild', 'Dispensable'];
+  Plotly.newPlot('genes-plot-pie', [{
+    type: 'pie', hole: 0.55, labels: order, values: order.map(c => counts[c] || 0),
+    marker: { colors: order.map(c => CLS_COL[c]) }, textinfo: 'label+percent',
+  }], plotly('', '', ''), PLOT_CFG);
+  Plotly.newPlot('genes-plot-hist', [{
+    type: 'histogram', x: rows.map(r => r.ratio), nbinsx: 30, marker: { color: '#2c6fbb' },
+  }], plotly('', 'Growth ratio (KO / wild type)', 'Genes'), PLOT_CFG);
+
+  const ess = rows.filter(r => r.cls !== 'Dispensable').sort((a, b) => a.ratio - b.ratio);
+  $('genes-table').innerHTML = `
+    <h6>Genes that matter (${ess.length})</h6>
+    <div class="fba-tablewrap"><table class="fba-flux">
+      <thead><tr><th>Gene</th><th>Name</th><th>Reactions switched off</th><th>Growth</th><th>Ratio</th><th>Class</th></tr></thead>
+      <tbody>${ess.slice(0, 300).map(r => `
+        <tr><td><code>${esc(r.gene)}</code></td><td>${esc(r.name)}</td>
+        <td>${r.nOff ? `<code>${r.rxns.slice(0, 3).map(esc).join('</code> <code>')}</code>${r.rxns.length > 3 ? ` +${r.rxns.length - 3}` : ''}` : '<span style="color:var(--mute)">none</span>'}</td>
+        <td class="num">${fmt(r.growth)}</td><td class="num">${(100 * r.ratio).toFixed(1)}%</td>
+        <td><span class="fba-badge" style="background:${CLS_COL[r.cls]}">${r.cls}</span></td></tr>`).join('')}</tbody>
+    </table></div>`;
+  $('genes-csv').onclick = () => {
+    let c = 'gene,name,n_reactions_off,reactions_off,growth,ratio,class\n';
+    rows.forEach(r => c += `${r.gene},"${(r.name || '').replace(/"/g, '""')}",${r.nOff},"${r.rxns.join(';')}",${r.growth},${r.ratio},${r.cls}\n`);
+    saveCSV(c, `gene_essentiality_${genesState.file.replace(/\.json.*/, '')}`);
+  };
+}
+
+/* ════════════════════════ Synthetic lethality ═════════════════════════════ */
+const synState = { model: null, file: null, res: null };
+function initSyn() {
+  fillMedia($('syn-media'), $('syn-media-desc'));
+  wireModelPicker('syn-model-input', 'syn-model-menu', 'syn-modelcard', synState);
+  $('syn-run').addEventListener('click', runSyn);
+}
+
+async function runSyn() {
+  if (!synState.model) return setStatus('syn-status', 'Choose a model first.', 'err');
+  const model = synState.model;
+  const media = mediaFor(model, $('syn-media').value);
+  const kind = $('syn-kind').value, n = +$('syn-n').value;
+  const btn = $('syn-run'); btn.disabled = true;
+  setStatus('syn-status', 'Ranking candidates by single-deletion impact…', 'busy');
+  try {
+    const t0 = performance.now();
+    // candidates: the reactions/genes that hurt most on their own but are not already lethal
+    let ids;
+    if (kind === 'gene') {
+      const gs = listGenes(model).map(g => g.id).slice(0, 250);
+      const sg = await singleGeneDeletion(model, media, gs, { onProgress: (d, t) => prog('syn-prog', 'syn-prog-bar', 0.5 * d / t) });
+      ids = sg.results.filter(r => r.ratio > 0.05).sort((a, b) => a.ratio - b.ratio).slice(0, n).map(r => r.gene);
+    } else {
+      const rx = model.reactions.filter(r => !r.id.startsWith('EX_') && !/BIOMASS/i.test(r.id)).map(r => r.id).slice(0, 250);
+      const sr = await essentialityScan(model, media, rx, { onProgress: (d, t) => prog('syn-prog', 'syn-prog-bar', 0.5 * d / t) });
+      ids = sr.results.filter(r => r.ratio > 0.05).sort((a, b) => a.ratio - b.ratio).slice(0, n).map(r => r.id);
+    }
+    setStatus('syn-status', `Testing ${(ids.length * (ids.length - 1)) / 2} pairs…`, 'busy');
+    const res = await doubleDeletion(model, media, ids, kind,
+      { onProgress: (d, t) => prog('syn-prog', 'syn-prog-bar', 0.5 + 0.5 * d / t) });
+    prog('syn-prog', 'syn-prog-bar', null);
+    synState.res = res;
+    renderSyn(res);
+    const sl = res.pairs.filter(p => p.synthetic).length;
+    setStatus('syn-status', `Done — ${res.pairs.length} pairs in ${((performance.now() - t0) / 1000).toFixed(1)} s. ${sl} synthetic lethal.`, 'ok');
+  } catch (e) { setStatus('syn-status', 'Error: ' + e.message, 'err'); console.error(e); }
+  finally { btn.disabled = false; }
+}
+
+function renderSyn(res) {
+  const ids = res.ids, n = ids.length;
+  const Z = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) =>
+    i === j ? res.singles[ids[i]] : null));
+  res.pairs.forEach(p => {
+    const i = ids.indexOf(p.a), j = ids.indexOf(p.b);
+    Z[i][j] = p.ratio; Z[j][i] = p.ratio;
+  });
+  const sl = res.pairs.filter(p => p.synthetic);
+  $('syn-results').style.display = 'block';
+  $('syn-kpis').innerHTML =
+    kpi(fmt(res.wtGrowth), 'Wild-type growth (h⁻¹)') +
+    kpi(res.pairs.length, 'Pairs tested') +
+    kpi(sl.length, 'Synthetic lethal', sl.length ? '#c0392b' : '#1a7f4b') +
+    kpi(res.pairs.filter(p => p.ratio < 0.5 && !p.synthetic).length, 'Severe pairs', '#e08a1e') +
+    kpi(res.kind === 'gene' ? 'genes' : 'reactions', 'Deleting');
+  Plotly.newPlot('syn-plot', [{
+    type: 'heatmap', z: Z, x: ids, y: ids, zmin: 0, zmax: 1,
+    colorscale: [[0, '#c0392b'], [0.5, '#f0c674'], [1, '#1a7f4b']],
+    colorbar: { title: 'growth / WT' },
+    hovertemplate: '%{y} + %{x}<br>growth ratio %{z:.3f}<extra></extra>',
+  }], plotly('', '', ''), PLOT_CFG);
+  $('syn-table').innerHTML = `
+    <h6>Synthetic lethal pairs (${sl.length})</h6>
+    ${sl.length ? `<div class="fba-tablewrap"><table class="fba-flux">
+      <thead><tr><th>A</th><th>B</th><th>A alone</th><th>B alone</th><th>Together</th></tr></thead>
+      <tbody>${sl.map(p => `<tr>
+        <td><code>${esc(p.a)}</code></td><td><code>${esc(p.b)}</code></td>
+        <td class="num">${(100 * p.ra).toFixed(0)}%</td><td class="num">${(100 * p.rb).toFixed(0)}%</td>
+        <td class="num" style="color:var(--bad)">${(100 * p.ratio).toFixed(1)}%</td></tr>`).join('')}</tbody>
+    </table></div>` : `<div class="fba-note">No synthetic lethal pair in this candidate set: every pair that kills has a member that already kills on its own.</div>`}`;
+  $('syn-csv').onclick = () => {
+    let c = 'a,b,growth_a_alone,growth_b_alone,growth_together,synthetic_lethal\n';
+    res.pairs.forEach(p => c += `${p.a},${p.b},${p.ra},${p.rb},${p.ratio},${p.synthetic}\n`);
+    saveCSV(c, `synthetic_lethality_${synState.file.replace(/\.json.*/, '')}`);
+  };
+}
+
+/* ═══════════════════════════ FSEOF strain design ══════════════════════════ */
+const fseofState = { model: null, file: null, res: null };
+function initFseof() {
+  fillMedia($('fseof-media'), $('fseof-media-desc'));
+  wireModelPicker('fseof-model-input', 'fseof-model-menu', 'fseof-modelcard', fseofState, (model) => {
+    const sel = $('fseof-product'); sel.innerHTML = '';
+    listExchanges(model).forEach(e => {
+      const o = document.createElement('option'); o.value = e.id;
+      o.textContent = `${e.id.replace(/^EX_/, '').replace(/_e$/, '')} — ${e.name.replace(/ exchange$/i, '')}`;
+      sel.appendChild(o);
+    });
+    const pref = ['EX_succ_e', 'EX_ac_e', 'EX_lac__D_e', 'EX_lac_D_e', 'EX_etoh_e', 'EX_for_e'];
+    const hit = pref.find(x => [...sel.options].some(o => o.value === x));
+    if (hit) sel.value = hit;
+  });
+  $('fseof-run').addEventListener('click', runFseof);
+}
+
+async function runFseof() {
+  if (!fseofState.model) return setStatus('fseof-status', 'Choose a model first.', 'err');
+  const media = mediaFor(fseofState.model, $('fseof-media').value);
+  const product = $('fseof-product').value;
+  const steps = Math.max(4, Math.min(20, +$('fseof-steps').value || 10));
+  const btn = $('fseof-run'); btn.disabled = true;
+  setStatus('fseof-status', `Scanning ${steps} enforced levels of ${product}…`, 'busy');
+  try {
+    const t0 = performance.now();
+    const res = await fseof(fseofState.model, media, product,
+      { steps, onProgress: (d, t) => prog('fseof-prog', 'fseof-prog-bar', d / t) });
+    prog('fseof-prog', 'fseof-prog-bar', null);
+    if (!res.prodMax) { setStatus('fseof-status', 'This model cannot secrete that product on this medium.', 'err'); btn.disabled = false; return; }
+    fseofState.res = res;
+    renderFseof(res);
+    setStatus('fseof-status', `Done — ${res.targets.length} amplification targets in ${((performance.now() - t0) / 1000).toFixed(1)} s.`, 'ok');
+  } catch (e) { setStatus('fseof-status', 'Error: ' + e.message, 'err'); console.error(e); }
+  finally { btn.disabled = false; }
+}
+
+function renderFseof(res) {
+  const top = res.targets.slice(0, 12);
+  $('fseof-results').style.display = 'block';
+  $('fseof-kpis').innerHTML =
+    kpi(fmt(res.prodMax, 2), 'Max product flux') +
+    kpi(res.targets.length, 'Amplification targets', '#1a7f4b') +
+    kpi(res.levels.length, 'Enforced levels') +
+    kpi(res.levels.length ? fmt(res.levels[0].growth) : '—', 'Growth at lowest enforcement') +
+    kpi(res.levels.length ? fmt(res.levels[res.levels.length - 1].growth) : '—', 'Growth at highest');
+  Plotly.newPlot('fseof-plot-tradeoff', [{
+    x: res.levels.map(l => l.enforced), y: res.levels.map(l => l.growth),
+    mode: 'lines+markers', line: { color: '#2c6fbb', width: 3 },
+  }], plotly('', `Enforced ${res.productEx} flux`, 'Growth (h⁻¹)'), PLOT_CFG);
+  Plotly.newPlot('fseof-plot-targets',
+    top.map((t, i) => ({
+      x: res.levels.map(l => l.enforced), y: t.series, mode: 'lines', name: t.id,
+      line: { width: 2, color: PALETTE[i % PALETTE.length] },
+    })), plotly('', `Enforced ${res.productEx} flux`, 'Reaction flux'), PLOT_CFG);
+  $('fseof-table').innerHTML = `
+    <h6>Over-expression targets (${res.targets.length})</h6>
+    <div class="fba-tablewrap"><table class="fba-flux">
+      <thead><tr><th>Reaction</th><th>Name</th><th>Subsystem</th><th>Wild type</th><th>At max enforcement</th><th>Fold</th></tr></thead>
+      <tbody>${res.targets.slice(0, 200).map(t => `<tr>
+        <td><code>${esc(t.id)}</code></td><td>${esc(t.name)}</td><td>${esc(t.subsystem)}</td>
+        <td class="num">${fmt(t.first, 3)}</td><td class="num">${fmt(t.last, 3)}</td>
+        <td class="num" style="color:var(--ok)">${isFinite(t.fold) ? '×' + t.fold.toFixed(1) : 'de novo'}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  $('fseof-csv').onclick = () => {
+    let c = 'reaction,name,subsystem,wild_type_flux,flux_at_max_enforcement,fold\n';
+    res.targets.forEach(t => c += `${t.id},"${(t.name || '').replace(/"/g, '""')}","${t.subsystem}",${t.first},${t.last},${t.fold}\n`);
+    saveCSV(c, `FSEOF_${fseofState.file.replace(/\.json.*/, '')}_${res.productEx}`);
+  };
+}
+
+/* ═════════════════════════════ Flux sampling ══════════════════════════════ */
+const sampState = { model: null, file: null, res: null };
+function initSamp() {
+  fillMedia($('samp-media'), $('samp-media-desc'));
+  wireModelPicker('samp-model-input', 'samp-model-menu', 'samp-modelcard', sampState);
+  $('samp-run').addEventListener('click', runSamp);
+}
+
+async function runSamp() {
+  if (!sampState.model) return setStatus('samp-status', 'Choose a model first.', 'err');
+  const media = mediaFor(sampState.model, $('samp-media').value);
+  const n = +$('samp-n').value, frac = +$('samp-frac').value;
+  const btn = $('samp-run'); btn.disabled = true;
+  setStatus('samp-status', 'Building warm-up points, then walking the polytope…', 'busy');
+  try {
+    const t0 = performance.now();
+    const res = await sampleFluxes(sampState.model, media,
+      { samples: n, warmup: 120, fraction: frac, onProgress: (d, t) => prog('samp-prog', 'samp-prog-bar', d / t) });
+    prog('samp-prog', 'samp-prog-bar', null);
+    if (!res.ok) { setStatus('samp-status', 'Cannot sample: ' + res.reason, 'err'); btn.disabled = false; return; }
+    sampState.res = res;
+    renderSamp(res);
+    setStatus('samp-status', `Done — ${res.samples.length} samples from ${res.warmup} warm-up points in ${((performance.now() - t0) / 1000).toFixed(1)} s.`, 'ok');
+  } catch (e) { setStatus('samp-status', 'Error: ' + e.message, 'err'); console.error(e); }
+  finally { btn.disabled = false; }
+}
+
+function renderSamp(res) {
+  const active = res.track.filter(id => res.samples.some(s => Math.abs(s[id]) > 1e-6)).slice(0, 14);
+  $('samp-results').style.display = 'block';
+  $('samp-kpis').innerHTML =
+    kpi(res.samples.length, 'Samples') +
+    kpi(res.warmup, 'Warm-up points') +
+    kpi((100 * res.fraction).toFixed(0) + '%', 'Growth held at') +
+    kpi(active.length, 'Exchanges with spread');
+  Plotly.newPlot('samp-plot', active.map((id, i) => ({
+    type: 'violin', y: res.samples.map(s => s[id]), name: id.replace(/^EX_/, '').replace(/_e$/, ''),
+    box: { visible: true }, meanline: { visible: true },
+    line: { color: PALETTE[i % PALETTE.length] },
+  })), plotly('', '', 'Flux (mmol gDW⁻¹ h⁻¹)'), PLOT_CFG);
+  $('samp-csv').onclick = () => {
+    let c = res.track.join(',') + '\n';
+    res.samples.forEach(s => c += res.track.map(id => s[id]).join(',') + '\n');
+    saveCSV(c, `flux_samples_${sampState.file.replace(/\.json.*/, '')}`);
+  };
+}
+
+/* ════════════════════════════════ Model QC ════════════════════════════════ */
+const qcState = { model: null, file: null, res: null };
+function initQC() {
+  fillMedia($('qc-media'), $('qc-media-desc'));
+  wireModelPicker('qc-model-input', 'qc-model-menu', 'qc-modelcard', qcState);
+  $('qc-run').addEventListener('click', runQC);
+}
+
+async function runQC() {
+  if (!qcState.model) return setStatus('qc-status', 'Choose a model first.', 'err');
+  const model = qcState.model;
+  const media = mediaFor(model, $('qc-media').value);
+  const cap = +$('qc-scope').value;
+  const btn = $('qc-run'); btn.disabled = true;
+  setStatus('qc-status', 'Checking mass and charge balance…', 'busy');
+  try {
+    const t0 = performance.now();
+    const q = modelQC(model);                                   // structural, no LP
+    const ids = model.reactions.map(r => r.id);
+    const scan = cap ? ids.slice(0, cap) : ids;
+    setStatus('qc-status', `Scanning ${scan.length} reactions for blocked flux…`, 'busy');
+    const bl = await findBlockedReactions(model, media, { reactionIds: scan,
+      onProgress: (d, t) => prog('qc-prog', 'qc-prog-bar', d / t) });
+    prog('qc-prog', 'qc-prog-bar', null);
+    qcState.res = { q, bl };
+    renderQC(q, bl);
+    setStatus('qc-status', `Done in ${((performance.now() - t0) / 1000).toFixed(1)} s.`, 'ok');
+  } catch (e) { setStatus('qc-status', 'Error: ' + e.message, 'err'); console.error(e); }
+  finally { btn.disabled = false; }
+}
+
+function renderQC(q, bl) {
+  $('qc-results').style.display = 'block';
+  $('qc-kpis').innerHTML =
+    kpi(bl.blocked.length, `Blocked (of ${bl.tested})`, bl.blocked.length ? '#e08a1e' : '#1a7f4b') +
+    kpi(q.massImbalanced.length, 'Mass imbalanced', q.massImbalanced.length ? '#c0392b' : '#1a7f4b') +
+    kpi(q.chargeImbalanced.length, 'Charge imbalanced', q.chargeImbalanced.length ? '#c0392b' : '#1a7f4b') +
+    kpi(q.deadEnds.length, 'Dead-end metabolites', '#e08a1e') +
+    kpi(q.noFormula.length, 'Metabolites w/o formula') +
+    kpi(q.orphanGenes.length, 'Orphan genes');
+  const tbl = (title, rows, head, body) => `
+    <div><h6>${title} (${rows.length})</h6>
+      ${rows.length ? `<div class="fba-tablewrap"><table class="fba-flux"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`
+                    : `<div class="fba-note" style="background:var(--ok-bg);border-color:var(--ok)">None found.</div>`}</div>`;
+  $('qc-tables').innerHTML = `
+    <div class="fba-two">
+      ${tbl('Mass-imbalanced reactions', q.massImbalanced,
+        '<th>Reaction</th><th>Name</th><th>Element imbalance</th>',
+        q.massImbalanced.slice(0, 200).map(r => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.name)}</td>
+          <td><code>${Object.entries(r.delta).map(([e, v]) => `${e}${v > 0 ? '+' : ''}${(+v.toFixed(2))}`).join(' ')}</code></td></tr>`).join(''))}
+      ${tbl('Charge-imbalanced reactions', q.chargeImbalanced,
+        '<th>Reaction</th><th>Name</th><th>Δ charge</th>',
+        q.chargeImbalanced.slice(0, 200).map(r => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.name)}</td>
+          <td class="num">${r.charge > 0 ? '+' : ''}${+r.charge.toFixed(2)}</td></tr>`).join(''))}
+    </div>
+    <div class="fba-two" style="margin-top:1rem">
+      ${tbl('Blocked reactions (no flux possible on this medium)', bl.blocked.map(id => ({ id })),
+        '<th>Reaction</th>', bl.blocked.slice(0, 300).map(r => `<tr><td><code>${esc(r.id)}</code></td></tr>`).join(''))}
+      ${tbl('Dead-end metabolites', q.deadEnds,
+        '<th>Metabolite</th><th>Name</th><th>Problem</th>',
+        q.deadEnds.slice(0, 300).map(m => `<tr><td><code>${esc(m.id)}</code></td><td>${esc(m.name)}</td>
+          <td>${m.onlyProduced ? 'only produced, never consumed' : 'only consumed, never produced'}</td></tr>`).join(''))}
+    </div>`;
+  $('qc-csv').onclick = () => {
+    let c = 'category,id,detail\n';
+    bl.blocked.forEach(r => c += `blocked,${r},\n`);
+    q.massImbalanced.forEach(r => c += `mass_imbalanced,${r.id},"${Object.entries(r.delta).map(([e, v]) => e + v).join(' ')}"\n`);
+    q.chargeImbalanced.forEach(r => c += `charge_imbalanced,${r.id},${r.charge}\n`);
+    q.deadEnds.forEach(m => c += `dead_end,${m.id},${m.onlyProduced ? 'only_produced' : 'only_consumed'}\n`);
+    q.orphanGenes.forEach(g => c += `orphan_gene,${g},\n`);
+    saveCSV(c, `model_QC_${qcState.file.replace(/\.json.*/, '')}`);
+  };
+}
