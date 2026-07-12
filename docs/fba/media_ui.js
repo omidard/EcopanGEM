@@ -1,6 +1,7 @@
 /* ── Shared media picker ──────────────────────────────────────────────────────
-   One widget, mounted by every analysis, so the whole Media DB (12,339 curated
-   media) is available everywhere and not just in Explore.
+   One widget, mounted by every analysis, so the whole Media DB is available
+   everywhere and not just in Explore. The media count is read from the database
+   rather than written here, because a hardcoded one goes stale.
 
    A medium only becomes real once bound to a model, because the solver closes
    every exchange the medium does not name. So the widget owns the binding and
@@ -47,7 +48,7 @@ export async function openMediaBrowser(onPick) {
       <div class="dlg-head">
         <div>
           <h5>Growth media</h5>
-          <p class="dlg-sub">12,339 curated media, keyed to BiGG exchange reactions. DSMZ MediaDive, HMDB biospecimens, USDA foods, and media from GEM papers. Bounds bind to whichever model you have loaded.</p>
+          <p class="dlg-sub"><b class="md-count">Curated</b> media, keyed to BiGG exchange reactions. DSMZ MediaDive, HMDB biospecimens, USDA foods, and media from GEM papers. Bounds bind to whichever model you have loaded.</p>
         </div>
         <button class="dlg-x" aria-label="Close">&times;</button>
       </div>
@@ -63,6 +64,7 @@ export async function openMediaBrowser(onPick) {
       <div class="md-list"><div class="md-empty">Loading catalog…</div></div>
     </div>`;
   document.body.appendChild(ov);
+  MediaDB.fillCategoryCounts(ov.querySelector('.md-cat'));
   const close = () => { ov.remove(); document.removeEventListener('keydown', onEsc); };
   const onEsc = (e) => { if (e.key === 'Escape') close(); };
   ov.querySelector('.dlg-x').addEventListener('click', close);
@@ -73,6 +75,7 @@ export async function openMediaBrowser(onPick) {
   let catalog;
   try { catalog = await MediaDB.catalog(); }
   catch (e) { list.innerHTML = `<div class="md-empty">Media DB unavailable: ${esc(e.message)}</div>`; return; }
+  ov.querySelector('.md-count').textContent = catalog.length.toLocaleString();   // the catalog itself, not a guess
 
   const draw = () => {
     const res = MediaDB.search(catalog, q.value, { category: cat.value }, 80);
@@ -116,7 +119,7 @@ export function mountMediaPicker(selectEl, state, opts = {}) {
   host.innerHTML = `
     <button type="button" class="media-browse">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg>
-      Browse all 12,339 media
+      Browse <span class="mc">all</span> media
     </button>
     <div class="media-report"></div>
     <label class="media-min"><input type="checkbox" class="me-minerals"> open essential inorganic ions and water</label>`;
@@ -124,6 +127,7 @@ export function mountMediaPicker(selectEl, state, opts = {}) {
     ? selectEl.nextElementSibling : selectEl;
   anchor.parentNode.insertBefore(host, anchor.nextSibling);
   state._mediaHost = host;
+  MediaDB.fillCount(host.querySelector('.mc'), n => `all ${n.toLocaleString()}`);
 
   state.mediaSpec = presetSpec(selectEl.value);
   state.openMinerals = false;

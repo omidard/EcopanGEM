@@ -1,11 +1,12 @@
 /* ── Media DB client ──────────────────────────────────────────────────────────
    Reads the Media dataset (github.com/omidard/Media), a read-only static API on
-   GitHub Pages with permissive CORS. 12,339 media, keyed by BiGG exchange
+   GitHub Pages with permissive CORS. Media are keyed by BiGG exchange
    reactions, with the same sign convention the solver uses: lower_bound < 0 is
    uptake, in mmol gDW-1 h-1.
 
      GET /data/index.json        catalog (444 KB gzipped, fetched once, cached)
      GET /data/media/{id}.json   one medium, with components[]
+     GET /data/stats.json        counts only, a few hundred bytes
 
    Sources include DSMZ MediaDive (3,148 laboratory media), USDA FoodData
    Central, FooDB, and media curated from GEM papers and GrowthDB.
@@ -33,6 +34,40 @@ export async function catalog() {
       });
   }
   return _catalogPromise;
+}
+
+/* Counts, from their own endpoint, because the catalog is 6.5 MB and a label should
+   not have to pull all of it. These were hardcoded before and went stale the moment
+   a medium was added. Never blocks the UI: on failure the caller shows no number. */
+let _statsPromise = null;
+export async function stats() {
+  if (!_statsPromise) {
+    _statsPromise = fetch(`${MEDIA_BASE}/data/stats.json`)
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null);                      // offline, or the endpoint predates this
+  }
+  return _statsPromise;
+}
+
+/** Write the live media count into an element, once it is known. */
+export function fillCount(el, fmt = (n) => n.toLocaleString()) {
+  if (!el) return;
+  stats().then(s => {
+    const n = s ? s.count : (_catalog ? _catalog.length : null);
+    if (n) el.textContent = fmt(n);
+  });
+}
+
+/** Append "(4,198)" style counts to the category <option>s of a filter select. */
+export function fillCategoryCounts(selectEl) {
+  if (!selectEl) return;
+  stats().then(s => {
+    if (!s || !s.by_category) return;
+    for (const o of selectEl.options) {
+      const n = s.by_category[o.value];
+      if (n) o.textContent = `${o.textContent.replace(/\s*\(.*\)$/, '')} (${n.toLocaleString()})`;
+    }
+  });
 }
 
 /** One medium, with components[]. Cached. */

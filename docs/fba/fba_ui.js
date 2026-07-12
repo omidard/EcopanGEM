@@ -134,7 +134,7 @@ function buildConditionCard(slot) {
       <div class="media-quick"></div>
       <button type="button" class="media-browse">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg>
-        Browse all 12,339 media
+        Browse <span class="mc">all</span> media
       </button>
       <div class="media-report"></div>
       <label class="media-min"><input type="checkbox" class="me-minerals"> open essential inorganic ions and water</label>
@@ -164,6 +164,7 @@ function buildConditionCard(slot) {
     if (card.querySelector('.fba-media-editor').style.display !== 'none') renderMediaEditor(cond);
   });
 
+  MediaDB.fillCount(card.querySelector('.media-browse .mc'), n => `all ${n.toLocaleString()}`);
   card.querySelector('.media-browse').addEventListener('click', () => openMediaBrowser(cond));
   card.querySelector('.me-minerals').addEventListener('change', (e) => {
     cond.openMinerals = e.target.checked;
@@ -348,22 +349,23 @@ async function openMediaBrowser(cond) {
       <div class="dlg-head">
         <div>
           <h5>Growth media</h5>
-          <p class="dlg-sub">12,339 curated media, keyed to BiGG exchanges. DSMZ MediaDive, HMDB biospecimens, USDA foods, and media from GEM papers.</p>
+          <p class="dlg-sub"><b class="md-count">Curated</b> media, keyed to BiGG exchanges. DSMZ MediaDive, HMDB biospecimens, USDA foods, and media from GEM papers.</p>
         </div>
         <button class="dlg-x" aria-label="Close">&times;</button>
       </div>
       <div class="dlg-tools">
-        <input class="form-control form-control-sm md-q" placeholder="Search media by name, e.g. MRS, LB, BHI, blood…" autocomplete="off">
+        <input class="form-control form-control-sm md-q" placeholder="Search media, e.g. CDM, MRS, LB, BHI, blood…" autocomplete="off">
         <select class="form-select form-select-sm md-cat">
           <option value="">All categories</option>
-          <option value="laboratory">Laboratory (4,197)</option>
-          <option value="food">Food (8,125)</option>
-          <option value="biospecimen">Biospecimen (17)</option>
+          <option value="laboratory">Laboratory</option>
+          <option value="food">Food</option>
+          <option value="biospecimen">Biospecimen</option>
         </select>
       </div>
       <div class="md-list"><div class="md-empty">Loading catalog…</div></div>
     </div>`;
   document.body.appendChild(ov);
+  MediaDB.fillCategoryCounts(ov.querySelector('.md-cat'));
   const close = () => ov.remove();
   ov.querySelector('.dlg-x').addEventListener('click', close);
   ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
@@ -375,6 +377,7 @@ async function openMediaBrowser(cond) {
   let cat_ = null;
   try { cat_ = await MediaDB.catalog(); }
   catch (e) { list.innerHTML = `<div class="md-empty">Media DB unavailable: ${esc(e.message)}</div>`; return; }
+  ov.querySelector('.md-count').textContent = cat_.length.toLocaleString();   // the catalog itself, not a guess
 
   const idx = cond.model ? exchangeIndex(cond.model) : null;
   const draw = () => {
