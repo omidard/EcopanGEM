@@ -344,7 +344,12 @@ async function runMulti() {
         const media = bindMedium(model, mmSpec.components, { openMinerals: mmState.openMinerals }).bounds;
         const fba = await runFBA(model, media);
         let res = fba;
-        if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) res = await runPFBA(model, media, fba);
+        /* Parsimony is forced on a non-growing model whatever the method, because with
+           the objective at zero every feasible vector is optimal and FBA returns an
+           arbitrary one. Reading an exchange fingerprint off that would invent a
+           secretion profile for a strain that is not growing at all, and on a minimal
+           medium plenty of the Lactobacillaceae do not. */
+        if (fba.optimal && (meth === 'pfba' || fba.growth <= 1e-9)) res = await runPFBA(model, media, fba);
         const ex = {}; for (const [id, v] of Object.entries(res.fluxes)) if (id.startsWith('EX_') && Math.abs(v) > 1e-6) ex[id] = v;
         rows.push({ file: f, meta: meta(f), growth: fba.optimal ? fba.growth : 0, ex });
       } catch (e) { rows.push({ file: f, meta: meta(f), growth: 0, ex: {}, error: e.message }); }
@@ -578,7 +583,7 @@ async function runCohort() {
     const rows = [];
     for (let i = 0; i < jobs.length; i++) {
       const [grp, f] = jobs[i];
-      try { const model = await loadModel(f); const media = bindMedium(model, cohortSpec.components, { openMinerals: cohortState.openMinerals }).bounds; const fba = await runFBA(model, media); let res = fba; if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) res = await runPFBA(model, media, fba); const ex = {}; for (const [id, v] of Object.entries(res.fluxes)) if (id.startsWith('EX_') && Math.abs(v) > 1e-6) ex[id] = v; rows.push({ grp, file: f, meta: meta(f), growth: fba.optimal ? fba.growth : 0, ex }); }
+      try { const model = await loadModel(f); const media = bindMedium(model, cohortSpec.components, { openMinerals: cohortState.openMinerals }).bounds; const fba = await runFBA(model, media); let res = fba; if (fba.optimal && (meth === 'pfba' || fba.growth <= 1e-9)) res = await runPFBA(model, media, fba); const ex = {}; for (const [id, v] of Object.entries(res.fluxes)) if (id.startsWith('EX_') && Math.abs(v) > 1e-6) ex[id] = v; rows.push({ grp, file: f, meta: meta(f), growth: fba.optimal ? fba.growth : 0, ex }); }
       catch (e) { rows.push({ grp, file: f, meta: meta(f), growth: 0, ex: {} }); }
       prog('cohort-prog', 'cohort-prog-bar', (i + 1) / jobs.length); setStatus('cohort-status', `Solved ${i + 1}/${jobs.length}…`, 'busy');
     }

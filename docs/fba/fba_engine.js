@@ -57,16 +57,26 @@ export async function runFBA(model, mediaBounds, opts) {
   };
 }
 
-// Parsimonious FBA: fix biomass at the FBA optimum, then minimize total flux
-// sum|v|. |v_i| is linearized with aux vars a_i >= v_i, a_i >= -v_i (min sum a_i).
+/* Parsimonious FBA: fix biomass at the FBA optimum, then minimize total flux sum|v|.
+   |v_i| is linearized with aux vars a_i >= v_i, a_i >= -v_i (min sum a_i).
+
+   This runs at ZERO growth too, and that matters. When the objective is zero every
+   feasible flux vector is optimal, so plain FBA returns an arbitrary one: whichever
+   vertex the simplex happens to stop at, loops and all. (Measured on a lethal
+   knockout: glpk.js returns loops pinned at the +/-1000 bounds, while COBRApy's
+   solver returns a tame vector. Both are "optimal". Neither is an answer.) Minimising
+   total flux picks one specific, reproducible state out of that space: the cell does
+   as little as its bounds allow, which is what a dead cell does. Bailing out here and
+   handing back the raw FBA vector, as this used to, meant every lethal knockout was
+   reported with an arbitrary flux distribution. */
 export async function runPFBA(model, mediaBounds, fbaResult, opts) {
   const glpk = await getGLPK();
   const fba = fbaResult || (await runFBA(model, mediaBounds, opts));
-  if (!fba.optimal || !(fba.growth > 1e-9)) return { ...fba, pfba: false };
+  if (!fba.optimal) return { ...fba, pfba: false };
 
   const lp = buildLP(glpk, model, mediaBounds, opts && opts.knockouts);
   const objId = fba.objectiveId;
-  const gTarget = fba.growth * (1 - 1e-6);
+  const gTarget = fba.growth > 1e-9 ? fba.growth * (1 - 1e-6) : 0;
   for (const b of lp.bounds)
     if (b.name === objId) { b.lb = gTarget; b.ub = Math.max(b.ub, fba.growth); b.type = glpk.GLP_DB; }
 
@@ -315,6 +325,53 @@ export async function doubleDeletion(model, media, ids, kind = 'reaction', opts 
   }
   pairs.sort((x, y) => x.ratio - y.ratio);
   return { wtGrowth: wtG, kind, singles, pairs, ids };
+}
+
+/* ── Knockdown titration ──────────────────────────────────────────────────────
+   A knockout is a single point on a curve. It answers "can the cell live without
+   this reaction" but not "how much of it did the cell actually need", and those
+   are different questions: a reaction can carry ten times the flux required of it
+   and show no phenotype until the last tenth is taken away.
+
+   Here the targeted reactions keep a fraction f of the throughput they carried in
+   the wild type, and f is swept from 0 (the knockout) to 1 (the wild type). A
+   cliff means there is no slack. A long plateau that falls only at the end means
+   the reaction was carrying far more flux than the cell needed, and a partial
+   inhibitor would do nothing.
+
+   Growth is monotone non-decreasing in f, because raising f only relaxes bounds:
+   that is a free correctness check on the result.
+   opts: {wtFluxes (required), steps, onProgress} */
+export async function knockdownCurve(model, media, rxnIds, opts = {}) {
+  const glpk = await getGLPK();
+  const wt = opts.wtFluxes || {};
+  const ids = rxnIds.filter(id => Math.abs(wt[id] || 0) > 1e-6);
+  if (!ids.length) return { optimal: false, reason: 'no-wt-flux', ids: [], points: [] };
+
+  const lp = buildLP(glpk, model, media, null);   // caps are set here, not by knockout
+  const byName = new Map(lp.bounds.map(b => [b.name, b]));
+  const orig = new Map(ids.map(id => {
+    const b = byName.get(id);
+    return [id, b ? { lb: b.lb, ub: b.ub } : null];
+  }));
+
+  const steps = Math.max(2, opts.steps || 21);
+  const points = [];
+  for (let i = 0; i < steps; i++) {
+    const f = i / (steps - 1);
+    for (const id of ids) {
+      const b = byName.get(id), o = orig.get(id);
+      if (!b || !o) continue;
+      const c = f * Math.abs(wt[id]);                 // allowed magnitude at this step
+      b.lb = Math.max(o.lb, -c);                      // never widen past the model's own bounds
+      b.ub = Math.min(o.ub, c);
+      b.type = (b.lb === b.ub) ? glpk.GLP_FX : glpk.GLP_DB;
+    }
+    const r = (await glpk.solve(lp, { msglev: glpk.GLP_MSG_OFF, presol: true })).result;
+    points.push({ f, growth: (r.status === glpk.GLP_OPT && r.z > 0) ? r.z : 0 });
+    if (opts.onProgress) opts.onProgress(i + 1, steps);
+  }
+  return { optimal: true, ids, points };
 }
 
 /* ── Linear MOMA ──────────────────────────────────────────────────────────────

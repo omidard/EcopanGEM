@@ -5,6 +5,7 @@
 import { runFBA, runPFBA, runLMOMA, looplessSolution, exchangeReport, listExchanges, listReactions,
          bindMedium, exchangeIndex, resolveExchange } from './fba_engine.js';
 import * as MediaDB from './media.js';
+import { renderKOPlots } from './ko_plots.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -524,7 +525,18 @@ async function runWith(cond, meth, knockouts, ref) {
   const opts = { knockouts };
   const fba = await runFBA(cond.model, cond.mediaBounds, opts);
   let result = fba;
-  if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) {
+  const lethal = fba.optimal && fba.growth <= 1e-9;
+
+  /* A dead cell's flux vector is not whatever the solver hands back. With the
+     objective at zero, EVERY feasible vector is optimal, so FBA returns an arbitrary
+     one: typically loops spinning at the +/-1000 bounds. Plotted, that reads as a
+     corpse re-routing its metabolism, which is nonsense. So when the knockout is
+     lethal we always minimise total flux, whatever method was asked for, and report
+     the parsimonious state: the cell stops. */
+  if (lethal) {
+    const p = await runPFBA(cond.model, cond.mediaBounds, fba, opts);
+    if (p.optimal) result = { ...p, growth: 0, lethal: true };
+  } else if (meth === 'pfba' && fba.optimal) {
     result = await runPFBA(cond.model, cond.mediaBounds, fba, opts);
   } else if (meth === 'moma' && ref && fba.optimal) {
     // MOMA asks a different question: not "what maximises growth after the
@@ -558,11 +570,15 @@ function renderKO(RW, RK) {
   const v = koVerdict(ratio);
   const kos = [...cond.knockouts];
 
-  // every reaction whose flux moved, largest change first
+  // every reaction whose flux moved, largest change first. The knocked-out
+  // reactions themselves are excluded from the re-routing count: they did not
+  // re-route, they were removed, and counting the intervention as its own effect
+  // inflates the number.
+  const koSet = new Set(kos);
   const deltas = [];
   for (const r of cond.model.reactions) {
     const a = fW[r.id] || 0, b = fK[r.id] || 0, d = b - a;
-    if (Math.abs(d) > 1e-6) deltas.push({ id: r.id, name: r.name || '', wt: a, ko: b, d });
+    if (Math.abs(d) > 1e-6 && !koSet.has(r.id)) deltas.push({ id: r.id, name: r.name || '', wt: a, ko: b, d });
   }
   deltas.sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
 
@@ -587,7 +603,43 @@ function renderKO(RW, RK) {
       ${kpi((gK - gW >= 0 ? '+' : '') + fmt(gK - gW), 'Δ growth', (gK - gW) < -1e-9 ? 'var(--bad)' : 'var(--ok)')}
       ${kpi(pct(ratio), 'of wild type', v.color)}
       ${kpi(v.label, 'Verdict', v.color)}
-      ${kpi(deltas.length, 'Reactions re-routed')}
+      ${kpi(deltas.length, gK <= 1e-9 ? 'Reactions shut down' : 'Reactions re-routed')}
+    </div>
+
+    <div class="ko-verdict" id="ko-verdict"></div>
+
+    <div class="ko-viz">
+      <div class="ko-viz-row">
+        <figure class="ko-fig">
+          <h6>How much of it did the cell actually need?</h6>
+          <div id="ko-plot-titr" class="ko-plot"></div>
+          <figcaption id="ko-cap-titr"></figcaption>
+        </figure>
+        <figure class="ko-fig">
+          <h6>Where in metabolism did it land?</h6>
+          <div id="ko-plot-subsys" class="ko-plot"></div>
+          <figcaption id="ko-cap-subsys"></figcaption>
+        </figure>
+      </div>
+
+      <figure class="ko-fig wide">
+        <h6>The whole flux distribution, wild type against knockout</h6>
+        <div id="ko-plot-scatter" class="ko-plot tall"></div>
+        <figcaption id="ko-cap-scatter"></figcaption>
+      </figure>
+
+      <div class="ko-viz-row">
+        <figure class="ko-fig">
+          <h6>Which reactions moved most</h6>
+          <div id="ko-plot-tornado" class="ko-plot tall"></div>
+          <figcaption id="ko-cap-tornado"></figcaption>
+        </figure>
+        <figure class="ko-fig">
+          <h6>What the cell eats and excretes</h6>
+          <div id="ko-plot-exch" class="ko-plot tall"></div>
+          <figcaption id="ko-cap-exch"></figcaption>
+        </figure>
+      </div>
     </div>
 
     <div class="ko-maps">
@@ -633,6 +685,11 @@ function renderKO(RW, RK) {
 
   renderEscher('ko-map-wt', null, fW);
   renderEscher('ko-map-ko', 'ko-map-note', fK);
+
+  renderKOPlots({
+    model: cond.model, media: cond.mediaBounds,
+    fW, fK, gW, gK, kos, method: RW.meth,
+  }).catch(e => { $('ko-verdict').innerHTML = `<span class="kv-note">Plots failed: ${esc(e.message)}</span>`; });
 
   $('ko-csv').addEventListener('click', () => {
     const rows = [['reaction', 'name', 'wild_type_flux', 'knockout_flux', 'delta']]
