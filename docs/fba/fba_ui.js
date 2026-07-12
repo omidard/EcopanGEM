@@ -2,24 +2,74 @@
 // Single & comparative FBA/pFBA with editable media, knockouts, a rich model
 // picker, charts (Chart.js) and Escher flux maps. All client-side.
 // Depends on page globals: gemBatchMap, BATCH_URL_BASE, JSZip, Chart, escher.
-import { runFBA, runPFBA, exchangeReport, listExchanges, listReactions } from './fba_engine.js';
+import { runFBA, runPFBA, exchangeReport, listExchanges, listReactions,
+         bindMedium, exchangeIndex, resolveExchange } from './fba_engine.js';
+import * as MediaDB from './media.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const fmt = (x, n = 4) => (x == null || isNaN(x)) ? '—' : Number(x).toFixed(n);
+const pct = (x) => (100 * x).toFixed(0) + '%';
 
 const S = {
   presets: null,
-  mode: 'single',
+  mode: 'single',      // single | compare | ko
   charts: {},
-  conditions: {},   // slot -> condition state
+  conditions: {},
   lastRun: null,
 };
+
+// Which pangenome a model belongs to. Drives the badge and the model filter.
+const COLLECTION = {
+  EcopanGEM:   { key: 'eco',   short: 'E. coli',           tag: 'ECO' },
+  LactoPanGEM: { key: 'lacto', short: 'Lactobacillaceae',  tag: 'LACTO' },
+};
+const collOf = (m) => COLLECTION[m && m.dataset] || { key: 'other', short: '', tag: '' };
+
+/* Lactobacillaceae are fastidious: they need amino acids, nucleotides and
+   vitamins, and do not grow on a minimal medium at all. Measured across a
+   sample of LactoPanGEM models, 0/10 grow on M9 + glucose while 5/10 grow on
+   MRS or BHI. Handing a Lactobacillus model the E. coli default would show zero
+   growth on arrival and read as a broken tool, so each collection gets a
+   default medium that suits its organism. */
+const MINIMAL = new Set(['M9_glucose_aerobic', 'M9_glucose_anaerobic']);
+const DEFAULT_MEDIUM = { EcopanGEM: 'M9_glucose_aerobic', LactoPanGEM: 'MRS' };
+const organismOf = (m) => m.gtdb_species || m.organism || m.genome_name || m.strain || '';
 
 // ── Media presets ─────────────────────────────────────────────────────────────
 async function loadPresets() {
   if (!S.presets) S.presets = await (await fetch('fba/media_presets.json')).json();
   return S.presets;
+}
+
+/* ── Media binding ────────────────────────────────────────────────────────────
+   A medium is a list of components keyed by BiGG exchange. It only becomes real
+   once bound to a specific model, because the solver closes every exchange the
+   medium does not name. EcopanGEM and LactoPanGEM were built a BiGG generation
+   apart (EX_glc__D_e vs EX_glc_D_e), so binding has to resolve across both
+   spellings. Nothing is applied silently: the coverage line below the picker
+   states exactly how many compounds landed and which did not. */
+function rebindMedia(cond) {
+  if (!cond.model || !cond.mediaSpec) return;
+  const r = bindMedium(cond.model, cond.mediaSpec.components, {
+    openMinerals: cond.openMinerals,
+  });
+  cond.mediaBounds = r.bounds;
+  cond.mediaReport = r;
+  cond.mediaEdited = false;
+  renderMediaReport(cond);
+}
+
+function specFromPreset(key) {
+  const p = S.presets[key];
+  return { kind: 'preset', id: key, label: p.label, desc: p.desc, source: p.source,
+           components: MediaDB.presetToComponents(p) };
+}
+
+function specFromDB(m) {
+  return { kind: 'db', id: m.id, label: m.name, source: (m.provenance && m.provenance.source_type) || m.namespace || 'Media DB',
+           desc: m.description || '', citation: (m.provenance && m.provenance.citation) || '',
+           components: m.components };
 }
 
 // ── Model loading (batch zip, cached) ────────────────────────────────────────
@@ -47,32 +97,47 @@ function indexMeta() {
 // ── Condition card ────────────────────────────────────────────────────────────
 function newCondition(slot) {
   return { slot, modelFile: null, model: null, meta: null, exchanges: null, reactions: null,
-           mediaKey: 'M9_glucose_aerobic', mediaBounds: {}, mediaEdited: false, knockouts: new Set(), card: null };
+           mediaSpec: null, mediaBounds: {}, mediaReport: null, mediaEdited: false,
+           openMinerals: false, knockouts: new Set(), card: null };
 }
 
 function buildConditionCard(slot) {
   const cond = newCondition(slot);
+  cond.mediaSpec = specFromPreset('M9_glucose_aerobic');
   S.conditions[slot] = cond;
   const card = el('div', 'fba-cond'); card.dataset.slot = slot;
   card.innerHTML = `
     <div class="fba-cond-head"><span class="fba-cond-badge">${slot.toUpperCase()}</span>
       <span class="title">Condition ${slot.toUpperCase()}</span></div>
+
     <div class="fba-field">
       <label>Strain model (GEM)</label>
+      <div class="coll-filter" role="group" aria-label="Filter models by pangenome">
+        <button type="button" class="coll-chip active" data-coll="">All 4,659</button>
+        <button type="button" class="coll-chip" data-coll="EcopanGEM"><i>E. coli</i> 2,313</button>
+        <button type="button" class="coll-chip" data-coll="LactoPanGEM">Lactobacillaceae 2,346</button>
+      </div>
       <div class="fba-combo">
-        <input class="form-control form-control-sm fba-combo-input" placeholder="Search genome name, strain or ID…" autocomplete="off">
+        <input class="form-control form-control-sm fba-combo-input" placeholder="Search species, strain or accession…" autocomplete="off">
         <div class="fba-combo-menu"></div>
       </div>
       <div class="fba-modelcard" style="display:none"></div>
     </div>
+
     <div class="fba-field">
       <label>Growth medium
         <button type="button" class="fba-linkbtn me-toggle" disabled>edit compounds</button>
         <button type="button" class="fba-linkbtn me-reset" disabled>reset</button></label>
-      <select class="form-select form-select-sm fba-media-sel"></select>
-      <div class="fba-media-desc"></div>
+      <div class="media-quick"></div>
+      <button type="button" class="media-browse">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg>
+        Browse all 12,339 media
+      </button>
+      <div class="media-report"></div>
+      <label class="media-min"><input type="checkbox" class="me-minerals"> open essential inorganic ions and water</label>
       <div class="fba-media-editor" style="display:none"></div>
     </div>
+
     <div class="fba-field">
       <label>Reaction knockouts <span class="fba-hint-inline">(optional — set flux to 0)</span></label>
       <div class="fba-ko">
@@ -83,55 +148,114 @@ function buildConditionCard(slot) {
     </div>`;
   cond.card = card;
 
-  // media select
-  const msel = card.querySelector('.fba-media-sel');
-  for (const [k, v] of Object.entries(S.presets)) {
-    const o = el('option'); o.value = k; o.textContent = v.label; msel.appendChild(o);
-  }
-  msel.value = cond.mediaKey;
-  updateMediaDesc(cond);
-  msel.addEventListener('change', () => {
-    cond.mediaKey = msel.value;
-    cond.mediaBounds = { ...S.presets[cond.mediaKey].bounds };
-    cond.mediaEdited = false;
-    updateMediaDesc(cond);
+  // quick media chips (the curated presets)
+  const quick = card.querySelector('.media-quick');
+  quick.innerHTML = Object.entries(S.presets).map(([k, v], i) =>
+    `<button type="button" class="media-chip${i === 0 ? ' active' : ''}" data-key="${esc(k)}">${esc(v.label)}</button>`).join('');
+  quick.addEventListener('click', (e) => {
+    const b = e.target.closest('.media-chip'); if (!b) return;
+    quick.querySelectorAll('.media-chip').forEach(x => x.classList.toggle('active', x === b));
+    cond.mediaSpec = specFromPreset(b.dataset.key);
+    cond.mediaTouched = true;
+    rebindMedia(cond);
     if (card.querySelector('.fba-media-editor').style.display !== 'none') renderMediaEditor(cond);
+  });
+
+  card.querySelector('.media-browse').addEventListener('click', () => openMediaBrowser(cond));
+  card.querySelector('.me-minerals').addEventListener('change', (e) => {
+    cond.openMinerals = e.target.checked;
+    rebindMedia(cond);
   });
 
   wireCombo(cond);
   wireMediaEditor(cond);
   wireKO(cond);
+  renderMediaReport(cond);
   return card;
 }
 
-function updateMediaDesc(cond) {
-  const p = S.presets[cond.mediaKey];
-  const n = Object.keys(cond.mediaBounds).length || Object.keys(p.bounds).length;
-  cond.card.querySelector('.fba-media-desc').textContent =
-    `${p.desc} · ${n} open exchanges${cond.mediaEdited ? ' (edited)' : ''} · ${p.source}`;
+/* The coverage line. A medium that binds 32 of 56 compounds is not "mostly
+   fine": the 24 that did not bind were silently removed from the medium. Say so. */
+function renderMediaReport(cond) {
+  const box = cond.card.querySelector('.media-report');
+  const spec = cond.mediaSpec;
+  if (!spec) { box.innerHTML = ''; return; }
+  if (!cond.model) {
+    box.innerHTML = `<div class="mr-line"><b>${esc(spec.label)}</b> · ${spec.components.length} compounds
+      <span class="mr-hint">pick a model to bind it</span></div>`;
+    return;
+  }
+  const r = cond.mediaReport || { mapped: [], missing: [], added: [], coverage: 0 };
+  const n = spec.components.length;
+  const cls = r.coverage >= 0.9 ? 'ok' : r.coverage >= 0.6 ? 'warn' : 'bad';
+  const renamed = r.mapped.filter(m => m.renamed).length;
+  box.innerHTML = `
+    <div class="mr-line">
+      <b>${esc(spec.label)}</b>
+      <span class="mr-cov ${cls}">${r.mapped.length}/${n} bound · ${pct(r.coverage)}</span>
+      ${cond.mediaEdited ? '<span class="mr-hint">edited</span>' : ''}
+    </div>
+    <div class="mr-sub">
+      ${renamed ? `<span class="mr-fix" title="Resolved across BiGG naming generations, e.g. EX_glc__D_e to EX_glc_D_e">${renamed} id${renamed > 1 ? 's' : ''} resolved</span>` : ''}
+      ${r.added.length ? `<span class="mr-hint">+${r.added.length} minerals opened</span>` : ''}
+      ${r.missing.length ? `<button type="button" class="mr-missing">${r.missing.length} not in this model</button>` : ''}
+      ${spec.source ? `<span class="mr-src">${esc(spec.source)}</span>` : ''}
+    </div>
+    <div class="mr-list" hidden>${r.missing.slice(0, 60).map(m =>
+      `<code>${esc(m.exchange)}</code> <span>${esc(m.name || '')}</span>`).join('')}</div>`;
+  const btn = box.querySelector('.mr-missing');
+  if (btn) btn.addEventListener('click', () => {
+    const l = box.querySelector('.mr-list'); l.hidden = !l.hidden;
+  });
 }
 
 // ── Model combobox ────────────────────────────────────────────────────────────
 function wireCombo(cond) {
   const input = cond.card.querySelector('.fba-combo-input');
   const menu = cond.card.querySelector('.fba-combo-menu');
-  let items = [], active = -1;
+  const chips = cond.card.querySelector('.coll-filter');
+  let items = [], active = -1, collFilter = '';
+
+  chips.addEventListener('click', (e) => {
+    const b = e.target.closest('.coll-chip'); if (!b) return;
+    chips.querySelectorAll('.coll-chip').forEach(x => x.classList.toggle('active', x === b));
+    collFilter = b.dataset.coll || '';
+    active = -1; render(); input.focus();
+  });
 
   const render = () => {
     const q = input.value.trim().toLowerCase();
-    const meta = window.gemMetadata || [];
+    let meta = window.gemMetadata || [];
+    if (collFilter) meta = meta.filter(m => m.dataset === collFilter);
     items = (q ? meta.filter(m =>
         (m.gem_file || '').toLowerCase().includes(q) ||
+        (m.gtdb_species || '').toLowerCase().includes(q) ||
+        (m.organism || '').toLowerCase().includes(q) ||
         (m.genome_name || '').toLowerCase().includes(q) ||
         (m.strain || '').toLowerCase().includes(q))
       : meta).slice(0, 40);
     if (!items.length) { menu.innerHTML = `<div class="fba-combo-empty">No models match.</div>`; menu.classList.add('show'); return; }
-    menu.innerHTML = items.map((m, i) => `
-      <div class="fba-combo-item${i === active ? ' active' : ''}" data-i="${i}">
-        <div class="nm">${esc(m.genome_name || m.strain || m.gem_file)}</div>
-        <div class="id">${esc(m.gem_file)}</div>
-        <div class="meta">${m.phylogroup ? 'Phylogroup ' + esc(m.phylogroup) : ''}${m.MLST ? ' · ST' + esc(m.MLST) : ''}${m.isolation_source ? ' · ' + esc(m.isolation_source) : ''}</div>
-      </div>`).join('');
+    menu.innerHTML = items.map((m, i) => {
+      const c = collOf(m);
+      const facts = [
+        m.strain ? esc(m.strain) : '',
+        m.phylogroup ? 'Phylogroup ' + esc(m.phylogroup) : '',
+        m.MLST ? 'ST' + esc(m.MLST) : '',
+        m.isolation_source ? esc(m.isolation_source) : '',
+        m.country ? esc(m.country) : '',
+      ].filter(Boolean).slice(0, 3).join(' · ');
+      const size = [m.n_reactions ? `${m.n_reactions} rxns` : '', m.n_genes ? `${m.n_genes} genes` : '']
+        .filter(Boolean).join(' · ');
+      return `
+      <div class="fba-combo-item mdl${i === active ? ' active' : ''}" data-i="${i}">
+        <span class="mdl-badge ${c.key}">${c.tag}</span>
+        <span class="mdl-body">
+          <span class="nm"><i>${esc(organismOf(m))}</i></span>
+          <span class="meta">${facts}</span>
+          <span class="id">${esc(m.assembly_accession || m.gem_file)}${size ? ' · ' + size : ''}</span>
+        </span>
+      </div>`;
+    }).join('');
     menu.classList.add('show');
   };
   input.addEventListener('focus', render);
@@ -168,29 +292,123 @@ async function selectModel(cond, gemFile) {
     cond.model = model;
     cond.exchanges = listExchanges(model);
     cond.reactions = listReactions(model);
-    cond.mediaBounds = { ...S.presets[cond.mediaKey].bounds };
-    cond.mediaEdited = false;
-    const m = cond.meta;
+    const m = cond.meta, c = collOf(m);
+    const obj = (model.reactions.find(r => r.objective_coefficient) || {}).id || '—';
     mc.innerHTML = `
-      <div class="mc-name">${esc(m.genome_name || m.strain || gemFile)}</div>
-      <div class="mc-id">${esc(gemFile)}</div>
+      <div class="mc-head">
+        <span class="mdl-badge ${c.key}">${c.tag}</span>
+        <span class="mc-name"><i>${esc(organismOf(m))}</i></span>
+      </div>
+      <div class="mc-id">${esc(m.assembly_accession || gemFile)}</div>
       <div class="mc-tags">
         <span class="fba-tag">${model.reactions.length} rxns</span>
         <span class="fba-tag">${model.metabolites.length} mets</span>
         <span class="fba-tag">${model.genes.length} genes</span>
+        <span class="fba-tag">${cond.exchanges.length} exchanges</span>
+        <span class="fba-tag" title="Objective (biomass) reaction">obj ${esc(obj)}</span>
+        ${m.strain ? `<span class="fba-tag">${esc(m.strain)}</span>` : ''}
         ${m.phylogroup ? `<span class="fba-tag">Phylogroup ${esc(m.phylogroup)}</span>` : ''}
         ${m.MLST ? `<span class="fba-tag">ST ${esc(m.MLST)}</span>` : ''}
         ${m.isolation_source ? `<span class="fba-tag">${esc(m.isolation_source)}</span>` : ''}
-        ${m.isolation_country ? `<span class="fba-tag">${esc(m.isolation_country)}</span>` : ''}
+        ${m.country ? `<span class="fba-tag">${esc(m.country)}</span>` : ''}
       </div>`;
     // enable editors
     cond.card.querySelector('.me-toggle').disabled = false;
     cond.card.querySelector('.me-reset').disabled = false;
     cond.card.querySelector('.fba-ko-input').disabled = false;
-    updateMediaDesc(cond);
+
+    // Give the organism a medium it can actually grow on, unless the user chose one.
+    const want = DEFAULT_MEDIUM[m.dataset];
+    let swapped = null;
+    if (want && !cond.mediaTouched && cond.mediaSpec.kind === 'preset'
+        && MINIMAL.has(cond.mediaSpec.id) && want !== cond.mediaSpec.id) {
+      cond.mediaSpec = specFromPreset(want);
+      cond.card.querySelectorAll('.media-chip').forEach(x =>
+        x.classList.toggle('active', x.dataset.key === want));
+      swapped = S.presets[want].label;
+    }
+    rebindMedia(cond);            // the medium is only real once bound to THIS model
+    if (swapped) {
+      cond.card.querySelector('.media-report').insertAdjacentHTML('beforeend',
+        `<div class="mr-swap">Switched to <b>${esc(swapped)}</b>: Lactobacillaceae do not grow on minimal media.</div>`);
+    }
   } catch (e) {
     mc.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`;
   }
+}
+
+/* ── Media browser: search the whole Media DB ─────────────────────────────── */
+async function openMediaBrowser(cond) {
+  const ov = el('div', 'dlg-overlay');
+  ov.innerHTML = `
+    <div class="dlg" role="dialog" aria-modal="true" aria-label="Browse growth media">
+      <div class="dlg-head">
+        <div>
+          <h5>Growth media</h5>
+          <p class="dlg-sub">12,339 curated media, keyed to BiGG exchanges. DSMZ MediaDive, HMDB biospecimens, USDA foods, and media from GEM papers.</p>
+        </div>
+        <button class="dlg-x" aria-label="Close">&times;</button>
+      </div>
+      <div class="dlg-tools">
+        <input class="form-control form-control-sm md-q" placeholder="Search media by name, e.g. MRS, LB, BHI, blood…" autocomplete="off">
+        <select class="form-select form-select-sm md-cat">
+          <option value="">All categories</option>
+          <option value="laboratory">Laboratory (4,197)</option>
+          <option value="food">Food (8,125)</option>
+          <option value="biospecimen">Biospecimen (17)</option>
+        </select>
+      </div>
+      <div class="md-list"><div class="md-empty">Loading catalog…</div></div>
+    </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector('.dlg-x').addEventListener('click', close);
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  document.addEventListener('keydown', function esc2(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc2); }
+  });
+
+  const q = ov.querySelector('.md-q'), cat = ov.querySelector('.md-cat'), list = ov.querySelector('.md-list');
+  let cat_ = null;
+  try { cat_ = await MediaDB.catalog(); }
+  catch (e) { list.innerHTML = `<div class="md-empty">Media DB unavailable: ${esc(e.message)}</div>`; return; }
+
+  const idx = cond.model ? exchangeIndex(cond.model) : null;
+  const draw = () => {
+    const res = MediaDB.search(cat_, q.value, { category: cat.value }, 80);
+    if (!res.length) { list.innerHTML = `<div class="md-empty">No media match.</div>`; return; }
+    list.innerHTML = res.map(m => `
+      <button type="button" class="md-item" data-id="${esc(m.id)}">
+        <span class="md-name">${esc(m.name)}</span>
+        <span class="md-meta">
+          <span class="md-tag ${esc(m.category)}">${esc(m.category)}</span>
+          <span>${m.n_components} compounds</span>
+          ${m.aerobic === true ? '<span>aerobic</span>' : m.aerobic === false ? '<span>anaerobic</span>' : ''}
+          ${m.source_db ? `<span class="md-src">${esc(m.source_db)}</span>` : ''}
+        </span>
+      </button>`).join('');
+  };
+  q.addEventListener('input', draw);
+  cat.addEventListener('change', draw);
+  draw();
+  q.focus();
+
+  list.addEventListener('click', async (e) => {
+    const b = e.target.closest('.md-item'); if (!b) return;
+    b.classList.add('busy');
+    try {
+      const m = await MediaDB.medium(b.dataset.id);
+      cond.mediaSpec = specFromDB(m);
+      cond.mediaTouched = true;
+      cond.card.querySelectorAll('.media-chip').forEach(x => x.classList.remove('active'));
+      rebindMedia(cond);
+      if (cond.card.querySelector('.fba-media-editor').style.display !== 'none') renderMediaEditor(cond);
+      close();
+    } catch (err) {
+      b.classList.remove('busy');
+      list.insertAdjacentHTML('afterbegin', `<div class="md-empty">Could not load: ${esc(err.message)}</div>`);
+    }
+  });
 }
 
 // ── Media editor ──────────────────────────────────────────────────────────────
@@ -203,8 +421,7 @@ function wireMediaEditor(cond) {
     else { box.style.display = 'none'; toggle.textContent = 'edit compounds'; }
   });
   reset.addEventListener('click', () => {
-    cond.mediaBounds = { ...S.presets[cond.mediaKey].bounds };
-    cond.mediaEdited = false; updateMediaDesc(cond);
+    rebindMedia(cond);
     if (box.style.display !== 'none') renderMediaEditor(cond);
   });
 }
@@ -233,12 +450,12 @@ function renderMediaEditor(cond) {
   box.querySelectorAll('.me-rate').forEach(inp => inp.addEventListener('change', () => {
     const id = inp.closest('tr').dataset.id;
     const v = parseFloat(inp.value);
-    if (!isNaN(v)) { cond.mediaBounds[id] = v; cond.mediaEdited = true; updateMediaDesc(cond); }
+    if (!isNaN(v)) { cond.mediaBounds[id] = v; cond.mediaEdited = true; renderMediaReport(cond); }
   }));
   // remove
   box.querySelectorAll('.fba-me-rm').forEach(x => x.addEventListener('click', () => {
     const id = x.closest('tr').dataset.id;
-    delete cond.mediaBounds[id]; cond.mediaEdited = true; renderMediaEditor(cond); updateMediaDesc(cond);
+    delete cond.mediaBounds[id]; cond.mediaEdited = true; renderMediaEditor(cond); renderMediaReport(cond);
   }));
   // add-compound combobox
   const ai = box.querySelector('.me-add-input'), am = box.querySelector('.me-add-menu');
@@ -257,7 +474,7 @@ function renderMediaEditor(cond) {
   am.addEventListener('mousedown', (e) => {
     const it = e.target.closest('.fba-combo-item'); if (!it) return; e.preventDefault();
     const ex = addItems[+it.dataset.i];
-    cond.mediaBounds[ex.id] = -0.5; cond.mediaEdited = true; renderMediaEditor(cond); updateMediaDesc(cond);
+    cond.mediaBounds[ex.id] = -0.5; cond.mediaEdited = true; renderMediaEditor(cond); renderMediaReport(cond);
   });
 }
 
@@ -294,11 +511,117 @@ function renderChips(cond) {
 function method() { return document.querySelector('input[name="fba-method"]:checked').value; }
 
 async function runAnalysis(cond, meth) {
-  const opts = { knockouts: [...cond.knockouts] };
+  return runWith(cond, meth, [...cond.knockouts]);
+}
+
+async function runWith(cond, meth, knockouts) {
+  const opts = { knockouts };
   const fba = await runFBA(cond.model, cond.mediaBounds, opts);
   let result = fba;
   if (meth === 'pfba' && fba.optimal && fba.growth > 1e-9) result = await runPFBA(cond.model, cond.mediaBounds, fba, opts);
-  return { cond, fba, result, meth };
+  return { cond, fba, result, meth, knockouts };
+}
+
+/* ── Knockout study: the same model and medium, solved with and without the
+   knockouts, so the effect is read as a difference rather than an absolute. ── */
+function koVerdict(ratio) {
+  if (ratio < 0.01) return { label: 'ESSENTIAL', color: 'var(--bad)' };
+  if (ratio < 0.50) return { label: 'SEVERE', color: 'var(--warn)' };
+  if (ratio < 0.95) return { label: 'MILD', color: 'var(--warn)' };
+  return { label: 'NO EFFECT', color: 'var(--ok)' };
+}
+
+function renderKO(RW, RK) {
+  const cond = RW.cond;
+  const fW = RW.result.fluxes || {}, fK = RK.result.fluxes || {};
+  const gW = RW.fba.optimal ? (RW.result.growth || 0) : 0;
+  const gK = RK.fba.optimal ? (RK.result.growth || 0) : 0;
+  const ratio = gW > 1e-9 ? gK / gW : 0;
+  const v = koVerdict(ratio);
+  const kos = [...cond.knockouts];
+
+  // every reaction whose flux moved, largest change first
+  const deltas = [];
+  for (const r of cond.model.reactions) {
+    const a = fW[r.id] || 0, b = fK[r.id] || 0, d = b - a;
+    if (Math.abs(d) > 1e-6) deltas.push({ id: r.id, name: r.name || '', wt: a, ko: b, d });
+  }
+  deltas.sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
+
+  const repW = exchangeReport(cond.model, fW), repK = exchangeReport(cond.model, fK);
+  const setOf = (arr) => new Set(arr.map(x => x.id));
+  const upW = setOf(repW.uptake), upK = setOf(repK.uptake);
+  const seW = setOf(repW.secretion), seK = setOf(repK.secretion);
+  const gained = [...seK].filter(x => !seW.has(x));
+  const lost = [...seW].filter(x => !seK.has(x));
+
+  const box = $('fba-results'); box.style.display = 'block';
+  box.innerHTML = `
+    <hr>
+    <div class="ko-head">
+      <code>${esc(cond.modelFile)}</code> on <strong>${esc(cond.mediaSpec.label)}</strong>
+      <span class="fba-badge">${RW.meth.toUpperCase()}</span>
+      <span class="ko-chipline">${kos.map(k => `<span class="fba-ko-chip">${esc(k)}</span>`).join('')}</span>
+    </div>
+    <div class="fba-kpis ko-kpis">
+      ${kpi(fmt(gW), 'Growth, wild type (h⁻¹)', 'var(--primary)')}
+      ${kpi(gK <= 1e-9 ? '0' : fmt(gK), 'Growth, knockout (h⁻¹)', gK <= 1e-9 ? 'var(--bad)' : 'var(--ink)')}
+      ${kpi((gK - gW >= 0 ? '+' : '') + fmt(gK - gW), 'Δ growth', (gK - gW) < -1e-9 ? 'var(--bad)' : 'var(--ok)')}
+      ${kpi(pct(ratio), 'of wild type', v.color)}
+      ${kpi(v.label, 'Verdict', v.color)}
+      ${kpi(deltas.length, 'Reactions re-routed')}
+    </div>
+
+    <div class="ko-maps">
+      <div class="ko-map">
+        <h6>Wild type<button class="viz-dl" data-plot="ko-map-wt" data-type="escher">⬇ SVG</button></h6>
+        <div id="ko-map-wt" class="ko-map-box"></div>
+      </div>
+      <div class="ko-map">
+        <h6>Knockout <span class="ko-dim">(${kos.length} reaction${kos.length > 1 ? 's' : ''} removed)</span><button class="viz-dl" data-plot="ko-map-ko" data-type="escher">⬇ SVG</button></h6>
+        <div id="ko-map-ko" class="ko-map-box"></div>
+      </div>
+    </div>
+    <div class="fba-map-note" id="ko-map-note"></div>
+
+    <div class="fba-two" style="margin-top:1.2rem">
+      <div>
+        <h6>Largest flux changes (${deltas.length})</h6>
+        <div class="fba-tablewrap">
+          <table class="fba-flux">
+            <thead><tr><th>Reaction</th><th>Wild type</th><th>Knockout</th><th>Δ</th></tr></thead>
+            <tbody>${deltas.slice(0, 200).map(x => `
+              <tr title="${esc(x.name)}">
+                <td><code>${esc(x.id)}</code></td>
+                <td class="num">${fmt(x.wt, 3)}</td>
+                <td class="num">${fmt(x.ko, 3)}</td>
+                <td class="num" style="color:${x.d < 0 ? 'var(--bad)' : 'var(--ok)'}">${(x.d >= 0 ? '+' : '') + fmt(x.d, 3)}</td>
+              </tr>`).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h6>What the cell does differently</h6>
+        <div class="ko-shift">
+          <div class="ko-shift-row"><span class="l">Nutrients taken up</span><span class="v">${repW.uptake.length} <span class="ko-arrow">→</span> ${repK.uptake.length}</span></div>
+          <div class="ko-shift-row"><span class="l">Products secreted</span><span class="v">${repW.secretion.length} <span class="ko-arrow">→</span> ${repK.secretion.length}</span></div>
+          ${gained.length ? `<div class="ko-shift-list"><b>New products</b>${gained.slice(0, 14).map(x => `<code class="up">${esc(bio({ id: x }))}</code>`).join('')}</div>` : ''}
+          ${lost.length ? `<div class="ko-shift-list"><b>Products lost</b>${lost.slice(0, 14).map(x => `<code class="dn">${esc(bio({ id: x }))}</code>`).join('')}</div>` : ''}
+          ${!gained.length && !lost.length ? `<div class="ko-shift-list"><span class="fba-hint-inline">Same set of secreted products; only the magnitudes moved.</span></div>` : ''}
+        </div>
+        <button class="btn btn-sm btn-outline-secondary mt-2" id="ko-csv">⬇ Download Δ fluxes (CSV)</button>
+      </div>
+    </div>`;
+
+  renderEscher('ko-map-wt', null, fW);
+  renderEscher('ko-map-ko', 'ko-map-note', fK);
+
+  $('ko-csv').addEventListener('click', () => {
+    const rows = [['reaction', 'name', 'wild_type_flux', 'knockout_flux', 'delta']]
+      .concat(deltas.map(x => [x.id, (x.name || '').replace(/,/g, ';'), x.wt, x.ko, x.d]));
+    saveCSV(rows.map(r => r.join(',')).join('\n'),
+      `KO_${cond.modelFile.replace(/\.json.*/, '')}_${kos.join('-')}`);
+  });
 }
 
 async function run() {
@@ -314,14 +637,28 @@ async function run() {
       const RA = await runAnalysis(a, meth);
       // growth across media (with current knockouts)
       const across = {};
-      for (const [k, v] of Object.entries(S.presets)) {
-        across[k] = (k === a.mediaKey && !a.mediaEdited) ? RA.fba.growth
-          : (await runFBA(a.model, v.bounds, { knockouts: [...a.knockouts] })).growth;
+      for (const k of Object.keys(S.presets)) {
+        if (a.mediaSpec.kind === 'preset' && k === a.mediaSpec.id && !a.mediaEdited) { across[k] = RA.fba.growth; continue; }
+        // bind each preset to THIS model: a Lactobacillaceae GEM needs its own
+        // exchange spelling, or every medium reads as zero growth.
+        const b = bindMedium(a.model, MediaDB.presetToComponents(S.presets[k]), { openMinerals: a.openMinerals });
+        across[k] = (await runFBA(a.model, b.bounds, { knockouts: [...a.knockouts] })).growth;
       }
       RA.across = across;
       S.lastRun = { mode: 'single', RA };
       renderSingle(RA);
       setStatus(`Done — solved in ${(performance.now() - t0).toFixed(0)} ms on your machine.`, 'ok');
+    } else if (S.mode === 'ko') {
+      const a = S.conditions.a;
+      if (!a.model) return setStatus('Choose a model first.', 'err');
+      if (!a.knockouts.size) return setStatus('Add at least one reaction knockout to compare against.', 'err');
+      setStatus(`Solving wild type and knockout (${meth.toUpperCase()})…`, 'busy');
+      const t0 = performance.now();
+      const RW = await runWith(a, meth, []);                 // wild type
+      const RK = await runWith(a, meth, [...a.knockouts]);   // same model, same medium, minus the reactions
+      S.lastRun = { mode: 'ko', RA: RW, RB: RK };
+      renderKO(RW, RK);
+      setStatus(`Done — both solved in ${(performance.now() - t0).toFixed(0)} ms.`, 'ok');
     } else {
       const a = S.conditions.a, b = S.conditions.b;
       if (!a.model || !b.model) return setStatus('Choose a model for both Condition A and B.', 'err');
@@ -339,7 +676,7 @@ async function run() {
 
 function setStatus(msg, kind) { const e = $('fba-status'); e.textContent = msg; e.className = 'fba-status ' + (kind || ''); }
 function kpi(v, l, color) { return `<div class="fba-kpi"><div class="v"${color ? ` style="color:${color}"` : ''}>${v}</div><div class="l">${l}</div></div>`; }
-function condLabel(cond) { return `${S.presets[cond.mediaKey].label}${cond.mediaEdited ? ' *' : ''}${cond.knockouts.size ? ` · KO:${[...cond.knockouts].join(',')}` : ''}`; }
+function condLabel(cond) { return `${cond.mediaSpec ? cond.mediaSpec.label : '—'}${cond.mediaEdited ? ' *' : ''}${cond.knockouts.size ? ` · KO:${[...cond.knockouts].join(',')}` : ''}`; }
 
 // ── Single results ────────────────────────────────────────────────────────────
 function renderSingle(R) {
@@ -348,7 +685,7 @@ function renderSingle(R) {
   const box = $('fba-results'); box.style.display = 'block';
   box.innerHTML = `
     <hr>
-    <div style="font-size:0.95rem;margin-bottom:0.4rem"><code>${esc(cond.modelFile)}</code> on <strong>${esc(S.presets[cond.mediaKey].label)}</strong>
+    <div style="font-size:0.95rem;margin-bottom:0.4rem"><code>${esc(cond.modelFile)}</code> on <strong>${esc(cond.mediaSpec.label)}</strong>
       <span class="fba-badge">${R.meth.toUpperCase()}</span> ${cond.knockouts.size ? `<span class="fba-badge" style="background:var(--bad)">${cond.knockouts.size} KO</span>` : ''}</div>
     <div class="fba-kpis">
       ${kpi(infeasible ? '0' : fmt(growth), 'Growth rate (h⁻¹)', infeasible ? '#c0392b' : '#1a7f4b')}
@@ -358,7 +695,17 @@ function renderSingle(R) {
       ${kpi(R.result.pfba ? fmt(R.result.totalFlux, 0) : '—', 'Total flux Σ|v| (pFBA)')}
     </div>`;
   if (infeasible) {
-    box.insertAdjacentHTML('beforeend', `<div class="fba-note" style="color:var(--bad)">No biomass on this medium/knockout set (growth ≈ 0). Try a richer medium or remove knockouts.</div>`);
+    const isLacto = (cond.meta || {}).dataset === 'LactoPanGEM';
+    const minimal = cond.mediaSpec.kind === 'preset' && MINIMAL.has(cond.mediaSpec.id);
+    const why = cond.knockouts.size
+      ? 'The knockouts remove a reaction the model cannot route around on this medium, so this reaction set is essential here.'
+      : (isLacto && minimal)
+        ? 'Lactobacillaceae are fastidious: they need amino acids, nucleotides and vitamins, and do not grow on a minimal medium. Try <b>MRS</b> or <b>BHI</b>.'
+        : isLacto
+          ? 'This medium does not cover everything this strain needs. Not every LactoPanGEM model is gap-filled for every medium, so a rich medium can still leave a strain unable to grow. Try MRS or BHI, or open the essential inorganic ions.'
+          : 'No biomass on this medium. Try a richer medium, or open the essential inorganic ions.';
+    box.insertAdjacentHTML('beforeend',
+      `<div class="fba-note"><b>No growth (biomass ≈ 0).</b> ${why}</div>`);
     return;
   }
   box.insertAdjacentHTML('beforeend', `
@@ -374,7 +721,7 @@ function renderSingle(R) {
 
   barChart('ch-across', Object.keys(R.across).map(k => S.presets[k].label),
     Object.values(R.across).map(v => Math.max(0, v)),
-    Object.keys(R.across).map(k => k === cond.mediaKey ? '#1a7f4b' : '#9db8d6'), 'Growth (h⁻¹)', false);
+    Object.keys(R.across).map(k => (cond.mediaSpec.kind === 'preset' && k === cond.mediaSpec.id) ? '#1a7f4b' : '#9db8d6'), 'Growth (h⁻¹)', false);
   barChart('ch-sec', rep.secretion.slice(0, 10).map(bio), rep.secretion.slice(0, 10).map(x => x.flux), '#c0392b', 'Flux', true);
   barChart('ch-up', rep.uptake.slice(0, 10).map(bio), rep.uptake.slice(0, 10).map(x => Math.abs(x.flux)), '#2c6fbb', 'Flux', true);
   renderEscher('ch-map', 'ch-map-note', fluxes);
@@ -389,7 +736,7 @@ function singleTables(cond, R, rep) {
       <div><h6>Secretion / end products (${rep.secretion.length})</h6><div class="fba-tablewrap"><table class="fba-flux"><thead><tr><th>Exchange</th><th>Name</th><th>Flux</th></tr></thead><tbody>${rows(rep.secretion, 1)}</tbody></table></div></div>
     </div>
     <button class="btn btn-sm btn-outline-secondary mt-2" id="ch-csv">⬇ Download all fluxes (CSV)</button>`;
-  $('ch-csv').addEventListener('click', () => downloadFluxCSV(cond.model, R.result.fluxes, `FBA_${cond.modelFile.replace(/\.json.*/, '')}_${cond.mediaKey}_${R.meth}`));
+  $('ch-csv').addEventListener('click', () => downloadFluxCSV(cond.model, R.result.fluxes, `FBA_${cond.modelFile.replace(/\.json.*/, '')}_${cond.mediaSpec.id}_${R.meth}`));
 }
 
 // ── Compare results ───────────────────────────────────────────────────────────
@@ -521,6 +868,10 @@ function setMode(mode) {
   const wrap = $('fba-conditions');
   wrap.classList.toggle('compare', mode === 'compare');
   S.conditions.b.card.style.display = mode === 'compare' ? '' : 'none';
+  const runBtn = $('fba-run');
+  if (runBtn) runBtn.textContent = mode === 'ko' ? '▶ Run knockout study' : '▶ Run analysis';
+  const koHint = $('fba-ko-hint');
+  if (koHint) koHint.style.display = mode === 'ko' ? '' : 'none';
 }
 
 async function init() {

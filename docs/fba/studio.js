@@ -1,6 +1,10 @@
 // EcopanGEM Flux Analysis Studio — FVA, Dynamic FBA & Multi-model tabs.
 // (The Explore/Compare tab is handled by fba_ui.js.) All client-side.
-import { runFBA, runPFBA, runFVA, runDFBA, productionEnvelope, phasePlane, essentialityScan, exchangeReport, listExchanges } from './fba_engine.js';
+import { runFBA, runPFBA, runFVA, runDFBA, productionEnvelope, phasePlane, essentialityScan, exchangeReport, listExchanges, bindMedium } from './fba_engine.js';
+
+// Glucose is spelled differently across BiGG generations. Pick whichever this model has.
+const GLC = ['EX_glc__D_e', 'EX_glc_D_e', 'EX_glc_e'];
+const pickGlc = (ids) => GLC.find(g => ids.includes(g)) || null;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -187,7 +191,8 @@ function initDFBA() {
       const sub = $('dfba-substrate'); const cur = sub.value;
       const exs = listExchanges(model).filter(e => /glc|glucose|fru|gal|lac|ac_e|succ|glyc|sucr|malt|xyl|arab/i.test(e.id));
       sub.innerHTML = exs.map(e => `<option value="${e.id}">${esc((e.name || e.id).replace(/ exchange$/i, ''))} (${e.id})</option>`).join('');
-      if ([...sub.options].some(o => o.value === 'EX_glc__D_e')) sub.value = 'EX_glc__D_e'; else if (cur) sub.value = cur;
+      const g = pickGlc([...sub.options].map(o => o.value));
+      if (g) sub.value = g; else if (cur) sub.value = cur;
     } catch (e) { mc.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
   });
   $('dfba-run').addEventListener('click', runDFBAtab);
@@ -673,7 +678,8 @@ function initPhasePlane() {
   wireModelPicker('pp-model-input', 'pp-model-menu', 'pp-modelcard', ppState, (model) => {
     const exs = listExchanges(model), opts = exs.map(e => `<option value="${e.id}">${bio(e.id)} (${e.id})</option>`).join('');
     $('pp-x').innerHTML = opts; $('pp-y').innerHTML = opts;
-    if (exs.some(e => e.id === 'EX_glc__D_e')) $('pp-x').value = 'EX_glc__D_e';
+    const gx = pickGlc(exs.map(e => e.id));
+    if (gx) $('pp-x').value = gx;
     if (exs.some(e => e.id === 'EX_o2_e')) $('pp-y').value = 'EX_o2_e';
   });
   $('pp-run').addEventListener('click', runPP);

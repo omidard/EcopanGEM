@@ -120,8 +120,10 @@ export async function runFVA(model, mediaBounds, reactionIds, opts = {}) {
 // Michaelis-Menten; biomass and tracked metabolite concentrations integrate by
 // forward Euler. opts: {substrateEx, substrate0, biomass0, vmax, km, dt, tmax, trackEx, knockouts, onProgress}.
 export async function runDFBA(model, mediaBounds, opts = {}) {
-  const o = Object.assign({ substrateEx: 'EX_glc__D_e', substrate0: 10, biomass0: 0.01,
+  const o = Object.assign({ substrateEx: null, substrate0: 10, biomass0: 0.01,
     vmax: 10, km: 0.5, dt: 0.1, tmax: 15, trackEx: [] }, opts);
+  // never hardcode a carbon source: Lactobacillaceae models have no EX_glc__D_e
+  if (!o.substrateEx) o.substrateEx = defaultSubstrate(model);
   const media = { ...mediaBounds };
   const conc = { [o.substrateEx]: o.substrate0 };
   for (const e of o.trackEx) if (!(e in conc)) conc[e] = 0;
@@ -212,6 +214,84 @@ export async function essentialityScan(model, mediaBounds, reactionIds, opts = {
     if (opts.onProgress) opts.onProgress(++done, reactionIds.length);
   }
   return { wtGrowth: wtG, results: out };
+}
+
+/* ── Exchange-id resolution across BiGG naming generations ────────────────────
+   EcopanGEM follows current BiGG and writes stereo tags with a DOUBLE underscore
+   (EX_glc__D_e). LactoPanGEM predates that change and writes a single one
+   (EX_glc_D_e). buildLP closes every exchange a medium does not name, so an
+   unresolved compound is not a cosmetic miss: it silently deletes a nutrient.
+   Measured on a Lactobacillaceae GEM with BHI medium: exact-match binds 32/56
+   compounds and the model does not grow at all (0.000 h-1); resolving binds
+   53/56 and it grows at 0.210 h-1. Both verified against COBRApy 0.27.
+   Collapsing both spellings to one key makes the lookup work in either
+   direction, so a medium written in either generation binds to either model. */
+const canonEx = (id) => String(id).replace(/__([LDRS])_e$/, '_$1_e').toLowerCase();
+
+export function exchangeIndex(model) {
+  const idx = new Map();
+  for (const r of model.reactions) {
+    if (!r.id.startsWith('EX_')) continue;
+    idx.set(r.id, r.id);
+    const k = canonEx(r.id);
+    if (!idx.has(k)) idx.set(k, r.id);
+  }
+  return idx;
+}
+
+export function resolveExchange(idx, wanted) {
+  if (!wanted) return null;
+  return idx.get(wanted) || idx.get(canonEx(wanted)) || null;
+}
+
+// Inorganic ions and water. Sparse media (a defined carbon source, a food record)
+// often omit these, and without them nothing grows. Offered as an explicit,
+// visible option rather than applied silently.
+export const MINERALS = ['EX_h2o_e', 'EX_h_e', 'EX_pi_e', 'EX_so4_e', 'EX_nh4_e', 'EX_k_e',
+  'EX_na1_e', 'EX_mg2_e', 'EX_ca2_e', 'EX_fe2_e', 'EX_fe3_e', 'EX_cl_e', 'EX_cu2_e',
+  'EX_mn2_e', 'EX_zn2_e', 'EX_cobalt2_e', 'EX_mobd_e', 'EX_ni2_e', 'EX_sel_e',
+  'EX_slnt_e', 'EX_tungs_e', 'EX_cbl1_e'];
+
+/* Bind a medium to ONE model and report exactly what landed.
+   components: [{exchange, lower_bound, name?}]
+   opts: {openMinerals:bool, o2:null|number}
+   returns {bounds, mapped[], missing[], added[], coverage} */
+export function bindMedium(model, components, opts = {}) {
+  const idx = exchangeIndex(model);
+  const bounds = {}, mapped = [], missing = [], added = [];
+  for (const c of components || []) {
+    const rid = resolveExchange(idx, c.exchange);
+    if (rid) {
+      bounds[rid] = Number(c.lower_bound);
+      mapped.push({ ...c, resolved: rid, renamed: rid !== c.exchange });
+    } else {
+      missing.push(c);
+    }
+  }
+  if (opts.openMinerals) {
+    for (const w of MINERALS) {
+      const rid = resolveExchange(idx, w);
+      if (rid && !(rid in bounds)) { bounds[rid] = -1000; added.push(rid); }
+    }
+  }
+  if (opts.o2 != null) {
+    const rid = resolveExchange(idx, 'EX_o2_e');
+    if (rid) bounds[rid] = Number(opts.o2);
+  }
+  const n = (components || []).length;
+  return { bounds, mapped, missing, added, coverage: n ? mapped.length / n : 1 };
+}
+
+// A carbon source that actually exists in THIS model. dFBA used to hardcode
+// EX_glc__D_e, which no Lactobacillaceae model has.
+export function defaultSubstrate(model) {
+  const idx = exchangeIndex(model);
+  for (const w of ['EX_glc__D_e', 'EX_glc_e', 'EX_fru_e', 'EX_sucr_e', 'EX_lcts_e']) {
+    const rid = resolveExchange(idx, w);
+    if (rid) return rid;
+  }
+  const ex = model.reactions.filter(r => r.id.startsWith('EX_'));
+  return ex.length ? ex[0].id : null;
 }
 
 // All exchange reactions in a model: {id, name, met, defaultLb, defaultUb}. For the media editor.

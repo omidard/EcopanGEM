@@ -83,12 +83,18 @@
         <div class="fba-modetoggle" id="fba-modetoggle">
           <button type="button" data-mode="single" class="active">Single analysis</button>
           <button type="button" data-mode="compare">Compare A vs B</button>
+          <button type="button" data-mode="ko">Knockout study</button>
         </div>
         <div class="fba-method"><span class="fba-method-lbl">Method:</span>
           <label><input type="radio" name="fba-method" value="fba"> FBA</label>
           <label><input type="radio" name="fba-method" value="pfba" checked> pFBA</label>
         </div>
         <button class="btn btn-primary btn-sm" id="fba-run" style="min-width:130px">▶ Run analysis</button>
+      </div>
+      <div class="fba-note" id="fba-ko-hint" style="display:none;margin-bottom:0.9rem">
+        <b>Knockout study.</b> Pick a model and a medium, then add the reactions to remove. The studio solves the
+        same model twice, with and without them, and reports the difference: growth before and after, an essentiality
+        verdict, every re-routed reaction, and two flux maps side by side.
       </div>
       <div class="fba-conditions" id="fba-conditions"></div>
       <div class="fba-status" id="fba-status"></div>
@@ -340,11 +346,17 @@
 <script src="vendor/plotly.min.js"></script>
 <script>
 // Shared data + globals for the analysis modules
-const BATCH_URL_BASE = 'gems/gems_batch_';
+/* Models come from the combined panGEMs collection, which already carries both
+   pangenomes: 2,313 EcopanGEM (batches 1-10) and 2,346 LactoPanGEM (11-47),
+   4,659 in total. Same origin, so no duplication of 450 MB of model batches.
+   Each metadata row carries `dataset`, which is what the collection badge and
+   the model filter key off. */
+const PANGEMS = 'https://omidard.github.io/panGEMs/';
+const BATCH_URL_BASE = PANGEMS + 'gems/gems_batch_';
 window.BATCH_URL_BASE = BATCH_URL_BASE;
 Promise.all([
-  fetch('gems_metadata.json').then(r => r.json()),
-  fetch('gem_batches.json').then(r => r.json())
+  fetch(PANGEMS + 'gems_metadata.json').then(r => r.json()),
+  fetch(PANGEMS + 'gem_batches.json').then(r => r.json())
 ]).then(([data, batchMap]) => {
   window.gemMetadata = data;
   window.gemBatchMap = batchMap;
