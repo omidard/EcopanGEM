@@ -408,29 +408,185 @@ button, a, .gem-link, [role='button'] { cursor: pointer; }
 }
 [data-theme='dark'] .map-tip { background: #E9EEF6; color: #0B1220; }
 
-/* ═══════════════════════════ toolbar / column panel ═══════════════════════ */
+/* ═══════════════════════════ toolbar ══════════════════════════════════════ */
 .panel .d-flex.gap-2 { flex-wrap: wrap; }
 
-#col-panel {
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+}
+.meta { font-size: .82rem; color: var(--ink-2); }
+.meta strong { color: var(--ink); font-weight: 600; }
+
+.btn-columns {
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--ink-2);
+}
+.btn-columns:hover:not(:disabled) { background: var(--surface-2); border-color: var(--mute); color: var(--ink); }
+.btn-columns.active {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+}
+#col-count-badge {
+  font-family: var(--font-data); font-size: .7rem; font-weight: 600;
+  background: var(--accent); color: var(--on-accent);
+  padding: 1px 7px; border-radius: var(--r-full);
+}
+.btn-columns.active #col-count-badge { background: var(--accent); color: var(--on-accent); }
+#sel-count { font-family: var(--font-data); font-size: .8rem; color: var(--mute); }
+
+/* ═══════════════════════════ column visibility ════════════════════════════
+   Sixty columns in nine groups. A flat list of sixty checkboxes is an inventory,
+   not a control, so the groups are load-bearing: each header toggles its whole
+   group and reports how much of it is on. The panel is CLOSED until asked for. */
+.col-toggle-panel {
+  display: none;                       /* ← the whole point of a toggle panel */
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-2);
-  padding: .9rem 1rem;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  animation: colp-in 220ms var(--ease);
 }
-#col-checkboxes { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .3rem .9rem; }
-#col-checkboxes label {
-  display: flex; align-items: center; gap: .4rem;
+.col-toggle-panel.show { display: block; }
+@keyframes colp-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+.colp-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap;
+  padding: .8rem 1rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+.colp-title {
+  display: flex; align-items: center; gap: .5rem;
+  font-size: .9rem; font-weight: 600; color: var(--ink);
+}
+.colp-title svg { color: var(--accent); flex: none; }
+.colp-count {
+  font-family: var(--font-data); font-size: .74rem; font-weight: 400;
+  color: var(--mute); margin-left: .25rem;
+}
+.colp-count b { color: var(--accent); font-weight: 700; }
+
+.colp-tools { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+.colp-search { position: relative; display: flex; align-items: center; }
+.colp-search svg {
+  position: absolute; left: .55rem;
+  color: var(--mute); pointer-events: none;
+}
+.colp-search input {
+  font-family: var(--font-ui); font-size: .8rem;
+  padding: .34rem .6rem .34rem 1.85rem;
+  width: 12.5rem;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line-2); border-radius: var(--r-sm);
+  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), width var(--t) var(--ease);
+}
+.colp-search input:focus {
+  outline: none; width: 15rem;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.colp-search input::placeholder { color: var(--mute); }
+.colp-search input::-webkit-search-cancel-button { filter: grayscale(1) opacity(.5); cursor: pointer; }
+
+/* The groups tile and WRAP. Not CSS multi-column: multicol inside an overflow-y box
+   fragments horizontally, so the fifth group onwards ends up off-screen rather than
+   below. Grid wraps into rows and scrolls, which is what a reader expects. */
+#col-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: .2rem 1.7rem;
+  align-items: start;
+  padding: 1rem 1.1rem 1.2rem;
+  max-height: 30rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#col-checkboxes.colp-empty { display: block; }
+@media (max-width: 700px) { #col-checkboxes { grid-template-columns: 1fr; max-height: 22rem; } }
+#col-checkboxes.colp-empty::before {
+  content: 'No column matches that.';
+  display: block; color: var(--mute); font-size: .82rem; padding: .6rem 0;
+}
+
+.col-group {
+  break-inside: avoid;                 /* a group must not be split across two columns */
+  -webkit-column-break-inside: avoid;
+  margin-bottom: 1.05rem;
+}
+.col-group[hidden] { display: none; }
+
+.col-group-title {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  width: 100%;
+  padding: .28rem .4rem;
+  margin-bottom: .18rem;
+  border: 0; border-radius: var(--r-sm);
+  background: transparent;
+  transition: background var(--t) var(--ease);
+}
+.col-group-title:hover { background: var(--surface-2); }
+.cg-name {
+  font-size: .68rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent);
+}
+.cg-count {
+  font-family: var(--font-data); font-size: .66rem; font-weight: 600;
+  color: var(--mute);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  padding: 0 6px;
+  white-space: nowrap;
+}
+.col-group.all-on .cg-count { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.col-group.none-on .cg-name { color: var(--mute); }
+
+.col-item {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .2rem .4rem;
+  border-radius: var(--r-sm);
   font-size: .8rem; color: var(--ink-2);
-  padding: .12rem 0;
-  cursor: pointer;
+  transition: background var(--t) var(--ease), color var(--t) var(--ease);
 }
-#col-count-badge {
-  font-family: var(--font-data); font-size: .7rem; font-weight: 600;
-  background: var(--accent-soft); color: var(--accent);
-  padding: 1px 7px; border-radius: var(--r-full);
+.col-item[hidden] { display: none; }
+.col-item:hover { background: var(--surface-2); color: var(--ink); }
+.col-item input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.col-item-box {
+  flex: none;
+  width: 15px; height: 15px;
+  border: 1.5px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--surface);
+  display: grid; place-items: center;
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease);
 }
-#sel-count { font-family: var(--font-data); font-size: .8rem; color: var(--mute); }
+.col-item-box::after {
+  content: '';
+  width: 8px; height: 8px;
+  transform: scale(0);
+  transition: transform 140ms var(--ease);
+  background: var(--on-accent);
+  clip-path: polygon(14% 44%, 0 65%, 40% 100%, 100% 16%, 82% 0, 38% 62%);
+}
+.col-item input:checked + .col-item-box { background: var(--accent); border-color: var(--accent); }
+.col-item input:checked + .col-item-box::after { transform: scale(1); }
+.col-item input:focus-visible + .col-item-box {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.col-item-label { line-height: 1.35; }
+.col-item input:checked ~ .col-item-label { color: var(--ink); font-weight: 500; }
 
 /* ═══════════════════════════ DataTables ═══════════════════════════════════ */
 .dataTables_wrapper { font-family: var(--font-ui); color: var(--ink-2); }

@@ -153,13 +153,22 @@
     </div>
   </div>
 
-  <!-- Column toggle panel -->
+  <!-- Column visibility -->
   <div class="col-toggle-panel" id="col-panel">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h6 class="mb-0">Show/Hide Columns</h6>
-      <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-primary" onclick="showAllCols()">Show All</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="resetCols()">Reset to Default</button>
+    <div class="colp-head">
+      <div class="colp-title">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
+        <span>Columns</span>
+        <span class="colp-count"><b id="colp-shown">0</b> of <span id="colp-total">0</span> shown</span>
+      </div>
+      <div class="colp-tools">
+        <div class="colp-search">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4.3-4.3"/></svg>
+          <input type="search" id="col-search" placeholder="Filter columns&hellip;" autocomplete="off"
+                 oninput="filterCols(this.value)" aria-label="Filter the column list">
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="showAllCols()">Show all</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetCols()">Reset</button>
       </div>
     </div>
     <div id="col-checkboxes"></div>
@@ -577,50 +586,112 @@ function toggleColPanel() {
   panel.classList.toggle('show');
   btn.classList.toggle('active');
 }
+
+
+
+
+
+
+
+// Filter column index lookup (by key)
+/* ── Column visibility ────────────────────────────────────────────────────────
+   Sixty columns in nine groups. A flat list of sixty checkboxes is not a control,
+   it is an inventory, so the groups are real here: each header toggles its whole
+   group and says how much of it is on. The search filters the list rather than the
+   table, because you are hunting for a column, not for a strain. */
+function buildColCheckboxes() {
+  const container = document.getElementById('col-checkboxes');
+  const groups = {};
+  COLUMNS.forEach((c, i) => { (groups[c.group] = groups[c.group] || []).push({ ...c, idx: i }); });
+
+  container.innerHTML = Object.entries(groups).map(([g, cols]) => `
+    <section class="col-group" data-group="${g}">
+      <button type="button" class="col-group-title" onclick="toggleColGroup('${g.replace(/'/g, "\\'")}')"
+              title="Show or hide every column in this group">
+        <span class="cg-name">${g}</span>
+        <span class="cg-count">0/${cols.length}</span>
+      </button>
+      <div class="col-group-items">
+        ${cols.map(c => `
+          <label class="col-item" data-label="${(c.label || '').toLowerCase()}">
+            <input type="checkbox" data-idx="${c.idx}" data-group="${g}"
+                   ${c.default ? 'checked' : ''} onchange="toggleColumn(${c.idx})">
+            <span class="col-item-box" aria-hidden="true"></span>
+            <span class="col-item-label">${c.label}</span>
+          </label>`).join('')}
+      </div>
+    </section>`).join('');
+
+  const tot = document.getElementById('colp-total');
+  if (tot) tot.textContent = COLUMNS.length;
+  updateColCountBadge();
+}
+
+/* One redraw for the whole group, not fourteen. */
+function toggleColGroup(g) {
+  const boxes = [...document.querySelectorAll('#col-checkboxes input[data-group="' + g + '"]')];
+  if (!boxes.length) return;
+  const on = !boxes.every(b => b.checked);
+  boxes.forEach(b => { b.checked = on; table.column(+b.dataset.idx).visible(on, false); });
+  table.columns.adjust().draw(false);
+  updateColCountBadge();
+}
+
+/* Filters the LIST, not the table: you are looking for a column, not a strain. */
+function filterCols(q) {
+  q = (q || '').trim().toLowerCase();
+  document.querySelectorAll('#col-checkboxes .col-item').forEach(l => {
+    l.hidden = !!q && !l.dataset.label.includes(q);
+  });
+  document.querySelectorAll('#col-checkboxes .col-group').forEach(sec => {
+    const any = [...sec.querySelectorAll('.col-item')].some(l => !l.hidden);
+    sec.hidden = !!q && !any;      // an empty group is noise, not information
+  });
+  const box = document.getElementById('col-checkboxes');
+  const none = ![...box.querySelectorAll('.col-group')].some(s => !s.hidden);
+  box.classList.toggle('colp-empty', none);
+}
+
 function updateColCountBadge() {
   const n = COLUMNS.reduce((acc, _, i) => acc + (table.column(i).visible() ? 1 : 0), 0);
   document.getElementById('col-count-badge').textContent = n;
+  const shown = document.getElementById('colp-shown');
+  if (shown) shown.textContent = n;
+  // per-group counts, so a group tells you what is on inside it without opening anything
+  document.querySelectorAll('#col-checkboxes .col-group').forEach(sec => {
+    const boxes = [...sec.querySelectorAll('input')];
+    const on = boxes.filter(b => b.checked).length;
+    const c = sec.querySelector('.cg-count');
+    if (c) c.textContent = on + '/' + boxes.length;
+    sec.classList.toggle('all-on', on === boxes.length);
+    sec.classList.toggle('none-on', on === 0);
+  });
 }
+
 function toggleColumn(idx) {
   const col = table.column(idx);
   col.visible(!col.visible());
   updateColCountBadge();
 }
+
 function showAllCols() {
-  COLUMNS.forEach((_, i) => table.column(i).visible(true));
+  COLUMNS.forEach((_, i) => table.column(i).visible(true, false));
+  table.columns.adjust().draw(false);
   document.querySelectorAll('#col-checkboxes input').forEach(cb => cb.checked = true);
   updateColCountBadge();
 }
+
 function resetCols() {
-  COLUMNS.forEach((c, i) => table.column(i).visible(c.default));
+  COLUMNS.forEach((c, i) => table.column(i).visible(c.default, false));
+  table.columns.adjust().draw(false);
   document.querySelectorAll('#col-checkboxes input').forEach(cb => {
     cb.checked = COLUMNS[parseInt(cb.dataset.idx)].default;
   });
+  const s = document.getElementById('col-search');
+  if (s) { s.value = ''; filterCols(''); }
   updateColCountBadge();
 }
 
-function buildColCheckboxes() {
-  const container = document.getElementById('col-checkboxes');
-  const groups = {};
-  COLUMNS.forEach((c, i) => {
-    if (!groups[c.group]) groups[c.group] = [];
-    groups[c.group].push({ ...c, idx: i });
-  });
-  let html = '<div class="row">';
-  const groupNames = Object.keys(groups);
-  groupNames.forEach((g, gi) => {
-    html += '<div class="col-md-4 col-lg-3 col-group">';
-    html += `<div class="col-group-title">${g}</div>`;
-    groups[g].forEach(c => {
-      html += `<label><input type="checkbox" data-idx="${c.idx}" ${c.default ? 'checked' : ''} onchange="toggleColumn(${c.idx})">${c.label}</label><br>`;
-    });
-    html += '</div>';
-  });
-  html += '</div>';
-  container.innerHTML = html;
-}
-
-// Filter column index lookup (by key)
 function colIdx(key) { return COLUMNS.findIndex(c => c.key === key); }
 
 // Load data + batch map
