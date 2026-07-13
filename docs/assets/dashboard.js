@@ -3,9 +3,9 @@
    Interactive: click a phylogroup bar or a map country to filter the table below. */
 (function () {
   'use strict';
-  const PRIMARY = '#2c6fbb';
-  const INK = '#33455c', MUTED = '#8792a3', GRID = 'rgba(120,140,165,0.14)';
-  const FONT = "'Segoe UI', system-ui, -apple-system, sans-serif";
+  const PRIMARY = '#2563EB';
+  const INK = '#0F1B2D', MUTED = '#64748B', GRID = '#E3E8EF';
+  const FONT = "'Fira Sans', system-ui, -apple-system, 'Segoe UI', sans-serif";
   const PHYLO_COLORS = { 'A':'#e41a1c','B1':'#377eb8','B2':'#4daf4a','C':'#984ea3','D':'#ff7f00',
     'E':'#a65628','F':'#f781bf','G':'#999999','U':'#666666','cryptic':'#333333' };
   const phyColor = n => PHYLO_COLORS[n] || '#8aa0b6';
@@ -65,7 +65,7 @@
   function renderMap(db, world) {
     const host = document.getElementById('map'); if (!host || !window.d3) return;
     const geo = db.geo, max = db.geo_max || 1;
-    const color = c => c > 0 ? d3.interpolateBlues(0.18 + 0.82 * Math.sqrt(c / max)) : '#e9edf2';
+    const color = c => c > 0 ? d3.interpolateBlues(0.18 + 0.82 * Math.sqrt(c / max)) : '#EEF2F7';
     let tip = document.getElementById('map-tip'); if (!tip) { tip = document.createElement('div'); tip.id = 'map-tip'; tip.className = 'map-tip'; document.body.appendChild(tip); }
     function paint() {
       const w = host.clientWidth || 900, h = Math.max(320, Math.round(w * 0.5));
@@ -82,7 +82,7 @@
           const n = geo[d.properties.iso] || 0;
           tip.innerHTML = `<strong>${d.properties.name}</strong><br>${n ? n.toLocaleString() + ' model' + (n === 1 ? '' : 's') : 'no isolates'}`;
           tip.style.opacity = 1; tip.style.left = (ev.pageX + 14) + 'px'; tip.style.top = (ev.pageY - 10) + 'px';
-          d3.select(this).attr('stroke', '#1a3a5c').attr('stroke-width', 1).raise();
+          d3.select(this).attr('stroke', '#0F1B2D').attr('stroke-width', 1.2).raise();
         })
         .on('mouseleave', function () { tip.style.opacity = 0; d3.select(this).attr('stroke', '#fff').attr('stroke-width', 0.4); })
         .on('click', function (ev, d) { const n = geo[d.properties.iso] || 0; if (!n) return; tip.style.opacity = 0; filterTable('filter-country', d.properties.name); });
@@ -90,7 +90,7 @@
     paint();
     let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(paint, 200); });
     const leg = document.getElementById('map-legend');
-    if (leg) { const stops = []; for (let i = 0; i <= 6; i++) stops.push(color(Math.round(max * (i / 6) * (i / 6)))); leg.querySelector('.grad').style.background = `linear-gradient(90deg, ${['#e9edf2'].concat(stops.slice(1)).join(',')})`; leg.querySelector('.max').textContent = max.toLocaleString(); }
+    if (leg) { const stops = []; for (let i = 0; i <= 6; i++) stops.push(color(Math.round(max * (i / 6) * (i / 6)))); leg.querySelector('.grad').style.background = `linear-gradient(90deg, ${['#EEF2F7'].concat(stops.slice(1)).join(',')})`; leg.querySelector('.max').textContent = max.toLocaleString(); }
   }
 
   // ---- filter the DataTables table below (matches an <option> value, dispatches change) ----

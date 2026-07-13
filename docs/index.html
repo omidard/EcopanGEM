@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-collection="eco">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,155 +7,33 @@
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/select/1.7.0/css/select.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-<style>
-  :root { --primary: #2c6fbb; --accent: #e8f0fe; }
-  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f5f7fa; }
-  .hero {
-    background: linear-gradient(135deg, #1a3a5c 0%, #2c6fbb 100%);
-    color: white; padding: 2rem 0; margin-bottom: 1.5rem;
-  }
-  .hero h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
-  .hero p { opacity: 0.9; margin-bottom: 0; }
-  .stat-card {
-    background: white; border-radius: 8px; padding: 1rem 1.2rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08); text-align: center;
-  }
-  .stat-card .num { font-size: 1.6rem; font-weight: 700; color: var(--primary); }
-  .stat-card .label { font-size: 0.8rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
-  .usage-card { border-top: 3px solid #1a7f4b; }
-  .usage-card .num { color: #1a7f4b; }
-  .usage-card .label { display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
-  .usage-note { font-size: 0.72rem; color: #999; margin: -0.4rem 0 0.6rem; }
-  .filter-row { background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .filter-row select { font-size: 0.85rem; }
-  .table-wrap { background: white; border-radius: 8px; padding: 1rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow-x: auto; }
-  table.dataTable { font-size: 0.82rem; }
-  table.dataTable thead th { background: var(--accent); font-size: 0.75rem;
-    text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
-  table.dataTable tbody td { vertical-align: middle; max-width: 200px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  table.dataTable tbody tr.selected { background-color: #d4e6f9 !important; }
-  .btn-zenodo { background: #1d6ec1; color: white; border: none; }
-  .btn-zenodo:hover { background: #155a9e; color: white; }
-  .badge-phylo { font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; font-weight: 600; }
-  #loading { text-align: center; padding: 3rem; }
-  .spinner-border { width: 2rem; height: 2rem; }
-  footer { text-align: center; padding: 1.5rem; color: #888; font-size: 0.8rem; }
-  a.gem-link { font-family: monospace; font-size: 0.82rem; }
-  /* Download modal */
-  .dl-overlay {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5); z-index: 9999;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .dl-modal {
-    background: white; border-radius: 12px; padding: 2rem; width: 480px;
-    max-width: 90vw; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-  }
-  .dl-modal h5 { margin-bottom: 1rem; }
-  .dl-progress { height: 8px; border-radius: 4px; background: #e9ecef; overflow: hidden; margin: 1rem 0; }
-  .dl-progress-bar { height: 100%; background: var(--primary); transition: width 0.3s; border-radius: 4px; }
-  .dl-status { font-size: 0.85rem; color: #666; }
-  .dl-error { color: #dc3545; font-size: 0.85rem; }
-  .dl-fallback { background: #f8f9fa; border-radius: 6px; padding: 0.8rem; margin-top: 0.8rem; font-size: 0.82rem; }
-  .dl-fallback code { display: block; margin-top: 0.4rem; background: #e9ecef; padding: 0.5rem; border-radius: 4px;
-    word-break: break-all; font-size: 0.78rem; }
-  /* GEM detail viewer */
-  .gem-detail-overlay {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.6); z-index: 10000; overflow-y: auto;
-  }
-  .gem-detail {
-    background: white; border-radius: 12px; margin: 2rem auto; padding: 0;
-    max-width: 1100px; width: 95vw; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    max-height: 90vh; display: flex; flex-direction: column;
-  }
-  .gem-detail-header {
-    padding: 1.2rem 1.5rem; border-bottom: 1px solid #eee;
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .gem-detail-header h4 { margin: 0; font-size: 1.1rem; }
-  .gem-detail-body { padding: 1rem 1.5rem; overflow-y: auto; flex: 1; }
-  .gem-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8rem; margin-bottom: 1.2rem; }
-  .gem-stat-item {
-    background: var(--accent); border-radius: 8px; padding: 0.8rem; text-align: center;
-  }
-  .gem-stat-item .val { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
-  .gem-stat-item .lbl { font-size: 0.72rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
-  .gem-tabs { border-bottom: 2px solid #eee; margin-bottom: 1rem; display: flex; gap: 0; }
-  .gem-tab {
-    padding: 0.6rem 1.2rem; cursor: pointer; font-size: 0.85rem; font-weight: 600;
-    color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px;
-  }
-  .gem-tab:hover { color: #444; }
-  .gem-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-  .gem-tab-content { display: none; }
-  .gem-tab-content.active { display: block; }
-  .gem-detail table { font-size: 0.8rem; }
-  .gem-detail table thead th { font-size: 0.72rem; text-transform: uppercase; background: #f8f9fa; position: sticky; top: 0; }
-  .gem-detail .dataTables_wrapper { font-size: 0.8rem; }
-  .gem-loading { text-align: center; padding: 3rem; color: #888; }
-  /* Column toggle panel */
-  .col-toggle-panel {
-    background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: none;
-  }
-  .col-toggle-panel.show { display: block; }
-  .col-toggle-panel h6 { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.5rem; color: #444; }
-  .col-group { margin-bottom: 0.8rem; }
-  .col-group-title { font-size: 0.75rem; font-weight: 600; color: var(--primary);
-    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.3rem; border-bottom: 1px solid #eee; padding-bottom: 2px; }
-  .col-toggle-panel label {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 0.8rem; margin-right: 1rem; margin-bottom: 4px; cursor: pointer; white-space: nowrap;
-  }
-  .col-toggle-panel input[type=checkbox] { accent-color: var(--primary); }
-  .btn-columns { border: 1px solid #ccc; background: white; font-size: 0.82rem; }
-  .btn-columns:hover { background: #f0f0f0; }
-  .btn-columns.active { background: var(--accent); border-color: var(--primary); }
-  .analysis-cta { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-    background: linear-gradient(135deg, #eef4fc 0%, #e2ecf9 100%); border: 1px solid #d3e1f2;
-    border-radius: 10px; padding: 0.9rem 1.2rem; margin-bottom: 1.3rem; font-size: 0.88rem; color: #33455c; }
-  .analysis-cta strong { color: #1a3a5c; }
-  /* Dashboard */
-  .dash-section { margin: 0.4rem 0 1.6rem; }
-  .dash-head { font-size: 1.05rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.15rem; }
-  .dash-sub { font-size: 0.82rem; color: #8792a3; margin-bottom: 1rem; }
-  .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-  @media (max-width: 860px) { .dash-grid { grid-template-columns: 1fr; } }
-  .panel { background: #fff; border-radius: 10px; padding: 1rem 1.1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .panel-title { font-size: 0.9rem; font-weight: 700; color: #33455c; margin-bottom: 0.15rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .panel-note { font-size: 0.76rem; color: #8792a3; margin-bottom: 0.6rem; }
-  .panel.span-2 { grid-column: 1 / -1; }
-  .chart-box { position: relative; height: 300px; }
-  #size-toggle { display: inline-flex; gap: 2px; background: #eef2f7; border-radius: 7px; padding: 2px; }
-  .metric-btn { border: none; background: transparent; font-size: 0.74rem; font-weight: 600; color: #6b7684; padding: 3px 9px; border-radius: 5px; cursor: pointer; }
-  .metric-btn.active { background: #fff; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
-  #map { width: 100%; }
-  .map-legend { display: flex; align-items: center; gap: 0.5rem; font-size: 0.74rem; color: #8792a3; margin-top: 0.4rem; }
-  .map-legend .grad { flex: 0 0 160px; height: 9px; border-radius: 5px; border: 1px solid #e0e6ee; }
-  .map-tip { position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.12s;
-    background: #1a3a5c; color: #fff; font-size: 0.78rem; line-height: 1.25; padding: 0.4rem 0.6rem;
-    border-radius: 6px; z-index: 10001; box-shadow: 0 4px 14px rgba(0,0,0,0.25); white-space: nowrap; }
-
-    /* Flux Studio */
-    .flux-cta{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:space-between;
-      border:1px solid #d7e3f4;background:linear-gradient(90deg,#f5f9ff 0%,#eaf1ff 100%);
-      border-radius:10px;padding:.95rem 1.15rem;margin:1.1rem 0 1.3rem}
-    .flux-cta-txt{display:flex;flex-direction:column;gap:.2rem;min-width:18rem;flex:1}
-    .flux-cta-txt strong{font-size:.96rem;color:#1a3a5c}
-    .flux-cta-txt span{font-size:.83rem;color:#5b7089;line-height:1.55}
-    .flux-cta .btn{white-space:nowrap}
-  </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="ui/browser.css">
+<script>
+  /* Before first paint, so the page never flashes the wrong theme. */
+  (function () {
+    var t; try { t = localStorage.getItem('gem-browser-theme'); } catch (e) {}
+    if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 </head>
 <body>
 
 <div class="hero">
+  <button class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false"><svg class="i-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="i-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg></button>
   <div class="container">
+    <p class="hero-eyebrow"><span class="dot" aria-hidden="true"></span> Genome-scale metabolic models</p>
     <h1>EcopanGEM Browser</h1>
     <p>Interactive explorer for 2,313 <em>E. coli</em> strain-specific genome-scale metabolic models (GEMs)</p>
+    <div class="hero-actions">
+        <a class="hero-btn primary" href="https://omidard.github.io/FluxStudio/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.4L5.3 18a2 2 0 0 0 1.7 3h10a2 2 0 0 0 1.7-3L14 9.4V3"/><path d="M7.6 15h8.8"/></svg> Open Flux Studio <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+        <a class="hero-btn" href="https://omidard.github.io/panGEMs/analytics.html" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l3.5-4 3 2.5L20 7"/></svg> Analytics and comparison <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
+        <span class="hint">compare models, contrast cohorts, build clustermaps, explore the species tree</span>
+    </div>
   </div>
 </div>
 
@@ -170,20 +48,20 @@
 
   <!-- Usage / dissemination stats (GoatCounter) -->
   <div class="row g-3" id="usage-stats-row">
-    <div class="col-6 col-md-3"><div class="stat-card usage-card"><div class="num" id="stat-views">-</div><div class="label"><span>👁</span> Page Views</div></div></div>
-    <div class="col-6 col-md-3"><div class="stat-card usage-card"><div class="num" id="stat-downloads">-</div><div class="label"><span>⬇</span> GEM Downloads</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card usage-card"><div class="num" id="stat-views">-</div><div class="label"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg> Page Views</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card usage-card"><div class="num" id="stat-downloads">-</div><div class="label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg> GEM Downloads</div></div></div>
   </div>
   <div class="usage-note">Live usage since launch · updated hourly</div>
 
   <!-- Flux Studio -->
   <div class="flux-cta">
     <div class="flux-cta-txt">
-      <strong>&#9879;&#65039; Simulate any of these models in Flux Studio</strong>
+      <strong><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.4L5.3 18a2 2 0 0 0 1.7 3h10a2 2 0 0 0 1.7-3L14 9.4V3"/><path d="M7.6 15h8.8"/></svg> Simulate any of these models in Flux Studio</strong>
       <span>Thirteen analyses &mdash; flux balance, knockouts, gene essentiality, flux sampling,
       strain design &mdash; on 12,340 curated growth media. Nothing installs and nothing uploads:
       the solver runs in your own browser tab.</span>
     </div>
-    <a class="btn btn-primary btn-sm" href="https://omidard.github.io/FluxStudio/" target="_blank" rel="noopener">Open Flux Studio &rarr;</a>
+    <a class="btn btn-primary btn-sm" href="https://omidard.github.io/FluxStudio/" target="_blank" rel="noopener">Open Flux Studio <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></a>
   </div>
 
   <!-- Dashboard -->
@@ -263,17 +141,14 @@
       <button class="btn btn-sm btn-zenodo" onclick="downloadAll()">
         Download All GEMs (Zenodo)
       </button>
-      <button class="btn btn-sm btn-primary" id="btn-download-sel" onclick="downloadSelected()" disabled>
-        Download Selected GEMs
+      <button class="btn btn-sm btn-primary" id="btn-download-sel" onclick="downloadSelected()" disabled><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg> Download Selected
       </button>
-      <button class="btn btn-sm btn-outline-primary" id="btn-copy" onclick="copySelected()" disabled>
-        Copy Filenames
+      <button class="btn btn-sm btn-outline-primary" id="btn-copy" onclick="copySelected()" disabled><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg> Copy Filenames
       </button>
       <button class="btn btn-sm btn-outline-success" id="btn-analyze-sel" onclick="analyzeSelected()" disabled>
-        ⚗️ Analyze Selected (Multi-model)
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.4L5.3 18a2 2 0 0 0 1.7 3h10a2 2 0 0 0 1.7-3L14 9.4V3"/><path d="M7.6 15h8.8"/></svg> Compare in Flux Studio
       </button>
-      <button class="btn btn-sm btn-outline-secondary" onclick="exportCSV()">
-        Export Table (CSV)
+      <button class="btn btn-sm btn-outline-secondary" onclick="exportCSV()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg> Export Table (CSV)
       </button>
     </div>
   </div>
@@ -861,7 +736,7 @@ async function openGemDetail(gemFile) {
         <div class="d-flex gap-2">
           <a class="btn btn-sm btn-primary" target="_blank" rel="noopener"
              href="https://omidard.github.io/FluxStudio/?tab=explore&model=${encodeURIComponent(gemFile)}"
-             title="Simulate this strain in Flux Studio">&#9879;&#65039; Simulate this strain</a>
+             title="Simulate this strain in Flux Studio"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.4L5.3 18a2 2 0 0 0 1.7 3h10a2 2 0 0 0 1.7-3L14 9.4V3"/><path d="M7.6 15h8.8"/></svg> Simulate this strain</a>
           <button class="btn btn-sm btn-outline-secondary" onclick="closeGemDetail()">Close</button>
         </div>
       </div>
@@ -1028,5 +903,6 @@ function switchGemTab(el, tabId) {
 }
 </script>
 <script src="assets/dashboard.js"></script>
+<script src="ui/browser.js"></script>
 </body>
 </html>
